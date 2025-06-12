@@ -105,12 +105,18 @@ export function filterChannel(channelData, firstVideo = null, options = {}) {
     return null;
   }
 
-  // 新しいチャンネルかどうかをチェック（チャンネル開設日または最初の動画日）
-  const isRecent = isRecentChannel(channelData.publishedAt, monthsThreshold) ||
-                   (firstVideo && hasRecentFirstVideo(firstVideo.publishedAt, monthsThreshold));
+  // 新しいチャンネルかどうかをチェック（チャンネル開設日を重視）
+  const channelIsRecent = isRecentChannel(channelData.publishedAt, monthsThreshold);
+  const firstVideoIsRecent = firstVideo && hasRecentFirstVideo(firstVideo.publishedAt, monthsThreshold);
+  
+  const channelAge = Math.floor((Date.now() - new Date(channelData.publishedAt)) / (1000 * 60 * 60 * 24 * 30));
+  const firstVideoAge = firstVideo ? Math.floor((Date.now() - new Date(firstVideo.publishedAt)) / (1000 * 60 * 60 * 24 * 30)) : 'N/A';
+  
+  console.log(`📅 ${channelData.channelTitle}: Channel age: ${channelAge}mo, First video: ${firstVideoAge}mo`);
 
-  if (!isRecent) {
-    console.log(`Filtered out (not recent): ${channelData.channelTitle}`);
+  // チャンネル開設日が最近であることを優先し、開設日が古い場合は除外
+  if (!channelIsRecent) {
+    console.log(`Filtered out (channel too old, ${channelAge} months): ${channelData.channelTitle}`);
     return null;
   }
 
