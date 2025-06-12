@@ -1,0 +1,69 @@
+name: Collect BGM Channel Data
+
+on:
+  # 毎週月曜日の午前9時（UTC）に実行
+  schedule:
+    - cron: '0 9 * * 1'
+  
+  # 手動実行も可能
+  workflow_dispatch:
+    inputs:
+      keywords_count:
+        description: 'Number of keywords to use'
+        required: false
+        default: '8'
+        type: number
+      max_channels:
+        description: 'Maximum channels to process'
+        required: false
+        default: '50'
+        type: number
+
+jobs:
+  collect-channels:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Run channel collection
+      run: |
+        cd backend
+        npm run collect
+      env:
+        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        LOG_LEVEL: info
+        
+    - name: Create collection report
+      if: always()
+      run: |
+        cd backend
+        echo "Collection completed at $(date)" > collection-report.txt
+        npm start stats >> collection-report.txt 2>&1 || echo "Stats unavailable" >> collection-report.txt
+      env:
+        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        
+    - name: Upload collection report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: collection-report
+        path: backend/collection-report.txt
+        retention-days: 30

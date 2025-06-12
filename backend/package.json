@@ -1,0 +1,26 @@
+{
+  "name": "youtube-bgm-backend",
+  "version": "1.0.0",
+  "description": "Backend service for collecting BGM YouTube channel data",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "collect": "node collect-channels.js",
+    "dev": "node --watch index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "youtube",
+    "bgm",
+    "channels",
+    "data-collection"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "firebase-admin": "^13.4.0",
+    "googleapis": "^150.0.1"
+  }
+}

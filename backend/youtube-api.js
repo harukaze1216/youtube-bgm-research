@@ -1,0 +1,176 @@
+import { google } from 'googleapis';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const youtube = google.youtube({
+  version: 'v3',
+  auth: process.env.YOUTUBE_API_KEY
+});
+
+/**
+ * Search for videos using keywords
+ * @param {string} query - Search query
+ * @param {number} maxResults - Maximum results to return
+ * @param {string} publishedAfter - ISO date string for videos published after this date
+ * @returns {Promise<Array>} Array of video data
+ */
+export async function searchVideos(query, maxResults = 50, publishedAfter = null) {
+  try {
+    const searchParams = {
+      part: 'snippet',
+      q: query,
+      type: 'video',
+      maxResults,
+      order: 'relevance',
+      regionCode: 'JP',
+      relevanceLanguage: 'ja'
+    };
+
+    if (publishedAfter) {
+      searchParams.publishedAfter = publishedAfter;
+    }
+
+    const response = await youtube.search.list(searchParams);
+    return response.data.items || [];
+  } catch (error) {
+    console.error(`Video search error for query "${query}":`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Get detailed channel information
+ * @param {string} channelId - YouTube channel ID
+ * @returns {Promise<Object|null>} Channel data or null if not found
+ */
+export async function getChannelDetails(channelId) {
+  try {
+    const response = await youtube.channels.list({
+      part: 'snippet,statistics,contentDetails',
+      id: channelId
+    });
+
+    if (!response.data.items || response.data.items.length === 0) {
+      return null;
+    }
+
+    const channel = response.data.items[0];
+    return {
+      channelId: channel.id,
+      channelTitle: channel.snippet.title,
+      description: channel.snippet.description,
+      thumbnailUrl: channel.snippet.thumbnails?.default?.url || channel.snippet.thumbnails?.medium?.url,
+      channelUrl: `https://www.youtube.com/channel/${channel.id}`,
+      subscriberCount: parseInt(channel.statistics.subscriberCount || 0),
+      videoCount: parseInt(channel.statistics.videoCount || 0),
+      totalViews: parseInt(channel.statistics.viewCount || 0),
+      publishedAt: channel.snippet.publishedAt,
+      uploadsPlaylistId: channel.contentDetails?.relatedPlaylists?.uploads
+    };
+  } catch (error) {
+    console.error(`Channel details error for ID "${channelId}":`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Get channel's first video (oldest video)
+ * @param {string} uploadsPlaylistId - Uploads playlist ID from channel details
+ * @returns {Promise<Object|null>} First video data or null
+ */
+export async function getChannelFirstVideo(uploadsPlaylistId) {
+  try {
+    // Get all videos from uploads playlist, ordered by date (oldest first)
+    const response = await youtube.playlistItems.list({
+      part: 'snippet',
+      playlistId: uploadsPlaylistId,
+      maxResults: 50,
+      order: 'date'
+    });
+
+    if (!response.data.items || response.data.items.length === 0) {
+      return null;
+    }
+
+    // Get the oldest video (first in the list when ordered by date)
+    const firstVideo = response.data.items[response.data.items.length - 1];
+    return {
+      videoId: firstVideo.snippet.resourceId.videoId,
+      title: firstVideo.snippet.title,
+      publishedAt: firstVideo.snippet.publishedAt,
+      url: `https://www.youtube.com/watch?v=${firstVideo.snippet.resourceId.videoId}`
+    };
+  } catch (error) {
+    console.error(`First video error for playlist "${uploadsPlaylistId}":`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Get channel's latest video
+ * @param {string} uploadsPlaylistId - Uploads playlist ID from channel details
+ * @returns {Promise<Object|null>} Latest video data or null
+ */
+export async function getChannelLatestVideo(uploadsPlaylistId) {
+  try {
+    const response = await youtube.playlistItems.list({
+      part: 'snippet',
+      playlistId: uploadsPlaylistId,
+      maxResults: 1
+    });
+
+    if (!response.data.items || response.data.items.length === 0) {
+      return null;
+    }
+
+    const latestVideo = response.data.items[0];
+    return {
+      videoId: latestVideo.snippet.resourceId.videoId,
+      title: latestVideo.snippet.title,
+      publishedAt: latestVideo.snippet.publishedAt,
+      url: `https://www.youtube.com/watch?v=${latestVideo.snippet.resourceId.videoId}`
+    };
+  } catch (error) {
+    console.error(`Latest video error for playlist "${uploadsPlaylistId}":`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Extract unique channel IDs from video search results
+ * @param {Array} videos - Array of video data from search
+ * @returns {Set} Set of unique channel IDs
+ */
+export function extractChannelIds(videos) {
+  const channelIds = new Set();
+  videos.forEach(video => {
+    if (video.snippet?.channelId) {
+      channelIds.add(video.snippet.channelId);
+    }
+  });
+  return channelIds;
+}
+
+/**
+ * Calculate growth rate based on channel age and subscriber count
+ * @param {number} subscriberCount - Current subscriber count
+ * @param {string} publishedAt - Channel creation date
+ * @returns {number} Growth rate percentage
+ */
+export function calculateGrowthRate(subscriberCount, publishedAt) {
+  try {
+    const createdDate = new Date(publishedAt);
+    const now = new Date();
+    const ageInMonths = (now - createdDate) / (1000 * 60 * 60 * 24 * 30);
+    
+    if (ageInMonths <= 0) return 0;
+    
+    // Simple growth rate calculation: subscribers per month / 1000 * 100
+    const growthRate = (subscriberCount / ageInMonths / 1000) * 100;
+    return Math.round(Math.min(growthRate, 999)); // Cap at 999%
+  } catch (error) {
+    console.error('Growth rate calculation error:', error);
+    return 0;
+  }
+}
