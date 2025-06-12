@@ -1,9 +1,9 @@
 name: Collect BGM Channel Data
 
 on:
-  # 毎週月曜日の午前9時（UTC）に実行
+  # 毎日午前9時（UTC）に実行
   schedule:
-    - cron: '0 9 * * 1'
+    - cron: '0 9 * * *'
   
   # 手動実行も可能
   workflow_dispatch:
@@ -16,7 +16,7 @@ on:
       max_channels:
         description: 'Maximum channels to process'
         required: false
-        default: '200'
+        default: '150'
         type: number
 
 jobs:
