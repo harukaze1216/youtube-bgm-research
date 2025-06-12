@@ -89,7 +89,7 @@ async function main() {
         }
 
         // 最初の動画と最新動画を取得
-        const firstVideo = await getChannelFirstVideo(channelDetails.uploadsPlaylistId);
+        const firstVideo = await getChannelFirstVideo(channelId);
         const latestVideo = await getChannelLatestVideo(channelDetails.uploadsPlaylistId);
 
         channelsWithDetails.push({

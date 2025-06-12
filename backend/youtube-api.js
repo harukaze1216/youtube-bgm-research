@@ -76,33 +76,61 @@ export async function getChannelDetails(channelId) {
 
 /**
  * Get channel's first video (oldest video)
- * @param {string} uploadsPlaylistId - Uploads playlist ID from channel details
+ * @param {string} channelId - Channel ID
  * @returns {Promise<Object|null>} First video data or null
  */
-export async function getChannelFirstVideo(uploadsPlaylistId) {
+export async function getChannelFirstVideo(channelId) {
   try {
-    // Get all videos from uploads playlist, ordered by date (oldest first)
-    const response = await youtube.playlistItems.list({
-      part: 'snippet',
-      playlistId: uploadsPlaylistId,
-      maxResults: 50,
-      order: 'date'
+    // First, get channel details to find uploads playlist
+    const channelResponse = await youtube.channels.list({
+      part: 'contentDetails',
+      id: channelId
     });
 
-    if (!response.data.items || response.data.items.length === 0) {
+    if (!channelResponse.data.items || channelResponse.data.items.length === 0) {
       return null;
     }
 
-    // Get the oldest video (first in the list when ordered by date)
-    const firstVideo = response.data.items[response.data.items.length - 1];
-    return {
-      videoId: firstVideo.snippet.resourceId.videoId,
-      title: firstVideo.snippet.title,
-      publishedAt: firstVideo.snippet.publishedAt,
-      url: `https://www.youtube.com/watch?v=${firstVideo.snippet.resourceId.videoId}`
-    };
+    const uploadsPlaylistId = channelResponse.data.items[0].contentDetails.relatedPlaylists.uploads;
+    
+    // Get the last few pages of the uploads playlist to find the oldest video
+    let oldestVideo = null;
+    let nextPageToken = '';
+    let pageCount = 0;
+    const maxPages = 10; // Limit to avoid excessive API calls
+    
+    do {
+      const response = await youtube.playlistItems.list({
+        part: 'snippet',
+        playlistId: uploadsPlaylistId,
+        maxResults: 50,
+        pageToken: nextPageToken || undefined
+      });
+
+      if (!response.data.items || response.data.items.length === 0) {
+        break;
+      }
+
+      // Check each video to find the oldest one so far
+      for (const item of response.data.items) {
+        const publishedAt = new Date(item.snippet.publishedAt);
+        if (!oldestVideo || publishedAt < new Date(oldestVideo.publishedAt)) {
+          oldestVideo = {
+            videoId: item.snippet.resourceId.videoId,
+            title: item.snippet.title,
+            publishedAt: item.snippet.publishedAt,
+            url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`
+          };
+        }
+      }
+
+      nextPageToken = response.data.nextPageToken;
+      pageCount++;
+    } while (nextPageToken && pageCount < maxPages);
+
+    return oldestVideo;
   } catch (error) {
-    console.error(`First video error for playlist "${uploadsPlaylistId}":`, error.message);
+    console.error(`First video error for channel "${channelId}":`, error.message);
     return null;
   }
 }
