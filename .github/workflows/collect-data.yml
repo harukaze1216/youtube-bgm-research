@@ -16,7 +16,7 @@ on:
       max_channels:
         description: 'Maximum channels to process'
         required: false
-        default: '50'
+        default: '200'
         type: number
 
 jobs:
