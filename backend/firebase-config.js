@@ -7,23 +7,33 @@ dotenv.config();
 let app;
 
 try {
-  // For development/testing, initialize with minimal config
-  // In production, you would use proper service account credentials
   if (!admin.apps.length) {
-    app = admin.initializeApp({
+    let config = {
       projectId: process.env.FIREBASE_PROJECT_ID || 'summery-23833',
-    });
+    };
+
+    // Use service account key if available (production/GitHub Actions)
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+      try {
+        const serviceAccountKey = JSON.parse(
+          Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_KEY, 'base64').toString()
+        );
+        config.credential = admin.credential.cert(serviceAccountKey);
+        console.log('Firebase initialized with service account credentials');
+      } catch (parseError) {
+        console.error('Error parsing service account key:', parseError);
+      }
+    } else {
+      console.log('Firebase initialized with default credentials (development mode)');
+    }
+
+    app = admin.initializeApp(config);
   } else {
     app = admin.app();
   }
 } catch (error) {
   console.error('Firebase Admin initialization error:', error);
-  // Fallback initialization for development
-  if (!admin.apps.length) {
-    app = admin.initializeApp({
-      projectId: 'summery-23833',
-    });
-  }
+  throw error;
 }
 
 // Get Firestore instance
