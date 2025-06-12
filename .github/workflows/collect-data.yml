@@ -62,7 +62,7 @@ jobs:
         
     - name: Upload collection report
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: collection-report
         path: backend/collection-report.txt
