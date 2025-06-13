@@ -7,6 +7,8 @@ import FilterSection from './components/FilterSection';
 import StatsOverview from './components/StatsOverview';
 import ChannelGrid from './components/ChannelGrid';
 import ChannelModal from './components/ChannelModal';
+import Settings from './components/Settings';
+import TrackingDashboard from './components/TrackingDashboard';
 
 function App() {
   const [channels, setChannels] = useState([]);
@@ -15,6 +17,8 @@ function App() {
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [channelDetails, setChannelDetails] = useState(null);
   const [trackedChannels, setTrackedChannels] = useState(new Set());
+  const [currentView, setCurrentView] = useState('channels');
+  const [selectedChannelForTracking, setSelectedChannelForTracking] = useState(null);
   const [filters, setFilters] = useState({
     sortBy: 'growth_rate',
     filterBy: 'all',
@@ -196,25 +200,43 @@ function App() {
     );
   }
 
+  const renderContent = () => {
+    switch (currentView) {
+      case 'settings':
+        return <Settings />;
+      case 'tracking':
+        return <TrackingDashboard selectedChannelId={selectedChannelForTracking} />;
+      default:
+        return (
+          <>
+            <SearchSection onAddChannel={handleAddChannel} />
+            
+            <FilterSection 
+              filters={filters} 
+              onFiltersChange={setFilters} 
+            />
+            
+            <StatsOverview channels={filteredChannels} />
+            
+            <ChannelGrid 
+              channels={filteredChannels}
+              onChannelClick={handleChannelClick}
+              onAddToTracking={handleAddToTracking}
+            />
+          </>
+        );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header 
+        currentView={currentView}
+        onViewChange={setCurrentView}
+      />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <SearchSection onAddChannel={handleAddChannel} />
-        
-        <FilterSection 
-          filters={filters} 
-          onFiltersChange={setFilters} 
-        />
-        
-        <StatsOverview channels={filteredChannels} />
-        
-        <ChannelGrid 
-          channels={filteredChannels}
-          onChannelClick={handleChannelClick}
-          onAddToTracking={handleAddToTracking}
-        />
+        {renderContent()}
       </main>
       
       <ChannelModal
