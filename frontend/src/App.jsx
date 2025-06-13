@@ -116,10 +116,62 @@ function App() {
   };
 
   const handleAddChannel = async (channelInput) => {
-    // TODO: Implement channel addition logic
-    console.log('チャンネル追加:', channelInput);
-    // For now, just reload to check for new data
-    await loadChannels();
+    try {
+      const { 
+        extractChannelId, 
+        fetchChannelInfo, 
+        fetchChannelFirstVideo,
+        checkChannelExists,
+        isBGMChannel,
+        calculateGrowthRate,
+        addChannelToFirestore
+      } = await import('./services/channelService');
+      
+      // チャンネルIDを抽出
+      const channelId = extractChannelId(channelInput);
+      
+      // 既存チェック
+      const exists = await checkChannelExists(channelId);
+      if (exists) {
+        alert('このチャンネルは既に追加されています');
+        return;
+      }
+      
+      // チャンネル情報を取得
+      const channelInfo = await fetchChannelInfo(channelId);
+      
+      // BGMチャンネルかチェック
+      if (!isBGMChannel(channelInfo.channelTitle, channelInfo.description)) {
+        const proceed = confirm('このチャンネルはBGM関連ではない可能性があります。追加しますか？');
+        if (!proceed) return;
+      }
+      
+      // 最初の動画を取得
+      const firstVideo = await fetchChannelFirstVideo(channelInfo.uploadsPlaylistId);
+      
+      // 成長率を計算
+      const growthRate = calculateGrowthRate(channelInfo, firstVideo);
+      
+      // 完全なチャンネルデータを構築
+      const channelData = {
+        ...channelInfo,
+        firstVideoDate: firstVideo?.publishedAt || channelInfo.publishedAt,
+        growthRate,
+        keywords: [] // BGM関連キーワードを後で追加可能
+      };
+      
+      // Firestoreに保存
+      await addChannelToFirestore(channelData);
+      
+      // チャンネル一覧を更新
+      await loadChannels();
+      
+      alert(`✅ チャンネル「${channelInfo.channelTitle}」を追加しました`);
+      
+    } catch (error) {
+      console.error('チャンネル追加エラー:', error);
+      alert(`❌ チャンネル追加に失敗しました: ${error.message}`);
+    }
   };
 
   const handleRemoveChannel = async (channelId) => {
