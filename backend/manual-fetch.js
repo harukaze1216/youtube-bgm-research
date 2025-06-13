@@ -36,6 +36,7 @@ function showUsage() {
   update <channelId>            - 既存チャンネルの統計を更新
   validate <channelId>          - チャンネルがBGMフィルターを通過するかチェック
   list                          - データベース内のチャンネル一覧を表示
+  remove <channelId>            - データベースからチャンネルを削除
 
 例:
   node manual-fetch.js channel UCxxxxxxxxxxxxxxxxxxxxx
@@ -43,6 +44,7 @@ function showUsage() {
   node manual-fetch.js latest UCxxxxxxxxxxxxxxxxxxxxx
   node manual-fetch.js popular UCxxxxxxxxxxxxxxxxxxxxx
   node manual-fetch.js update UCxxxxxxxxxxxxxxxxxxxxx
+  node manual-fetch.js remove UCxxxxxxxxxxxxxxxxxxxxx
   node manual-fetch.js list
 
 オプション:
@@ -267,11 +269,67 @@ async function listChannels() {
       console.log(`   👥 ${(channel.subscriberCount || 0).toLocaleString()} 登録者`);
       console.log(`   📈 成長率: ${channel.growthRate || 0}%`);
       console.log(`   🆔 ${channel.channelId}`);
+      console.log(`   📄 Firestore ID: ${channel.id}`);
       console.log('');
     });
     
   } catch (error) {
     console.error('❌ チャンネル一覧取得エラー:', error.message);
+  }
+}
+
+/**
+ * チャンネルをデータベースから削除
+ */
+async function removeChannel(channelId) {
+  try {
+    const { getDocs, getDoc, collection, deleteDoc, doc, query, where } = await import('firebase/firestore');
+    const { db } = await import('./firebase-config.js');
+    
+    console.log(`🗑️ チャンネル削除中: ${channelId}`);
+    
+    // チャンネルIDまたはFirestoreドキュメントIDで検索
+    let docToDelete = null;
+    
+    if (channelId.startsWith('UC') && channelId.length === 24) {
+      // YouTubeチャンネルIDの場合
+      const q = query(collection(db, 'bgm_channels'), where('channelId', '==', channelId));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('❌ 指定されたチャンネルが見つかりません');
+        return;
+      }
+      
+      docToDelete = snapshot.docs[0];
+    } else {
+      // FirestoreドキュメントIDの場合
+      const docRef = doc(db, 'bgm_channels', channelId);
+      const docSnapshot = await getDoc(docRef);
+      
+      if (!docSnapshot.exists()) {
+        console.log('❌ 指定されたドキュメントが見つかりません');
+        return;
+      }
+      
+      docToDelete = docSnapshot;
+    }
+    
+    const channelData = docToDelete.data();
+    const channelTitle = channelData.channelTitle || 'Unknown';
+    
+    // 削除確認
+    console.log(`\n削除対象: ${channelTitle}`);
+    console.log(`YouTube ID: ${channelData.channelId}`);
+    console.log(`Firestore ID: ${docToDelete.id}`);
+    
+    // 実際の削除処理
+    await deleteDoc(docToDelete.ref);
+    
+    console.log(`\n✅ チャンネルを削除しました: ${channelTitle}`);
+    
+  } catch (error) {
+    console.error('❌ チャンネル削除エラー:', error.message);
   }
 }
 
@@ -350,6 +408,14 @@ async function main() {
 
     case 'list':
       await listChannels();
+      break;
+
+    case 'remove':
+      if (!channelId) {
+        console.log('❌ チャンネルIDを指定してください');
+        return;
+      }
+      await removeChannel(channelId);
       break;
 
     default:

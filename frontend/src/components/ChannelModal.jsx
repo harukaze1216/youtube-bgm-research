@@ -19,7 +19,7 @@ const ChannelModal = ({ channel, isOpen, onClose, onRemove }) => {
 
   const handleRemove = () => {
     if (confirm('このチャンネルを追跡リストから削除しますか？')) {
-      onRemove(channel.channelId);
+      onRemove(channel.id); // FirestoreのドキュメントIDを使用
       onClose();
     }
   };

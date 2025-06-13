@@ -175,12 +175,28 @@ function App() {
     }
   };
 
-  const handleRemoveChannel = async (channelId) => {
+  const handleRemoveChannel = async (idOrChannelId) => {
     try {
-      await deleteDoc(doc(db, 'bgm_channels', channelId));
+      // FirestoreドキュメントIDまたはYouTubeチャンネルIDのどちらでも対応
+      let docIdToDelete = idOrChannelId;
+      
+      // もしYouTubeチャンネルIDが渡された場合、対応するFirestoreドキュメントIDを見つける
+      if (idOrChannelId.startsWith('UC') && idOrChannelId.length === 24) {
+        const channelToDelete = channels.find(ch => ch.channelId === idOrChannelId);
+        if (channelToDelete) {
+          docIdToDelete = channelToDelete.id;
+        } else {
+          console.error('削除対象のチャンネルが見つかりません');
+          return;
+        }
+      }
+      
+      await deleteDoc(doc(db, 'bgm_channels', docIdToDelete));
       await loadChannels();
+      console.log(`✅ チャンネルを削除しました: ${docIdToDelete}`);
     } catch (error) {
       console.error('チャンネル削除エラー:', error);
+      alert('チャンネルの削除に失敗しました');
     }
   };
 
