@@ -10,7 +10,6 @@ const SearchSection = ({ onAddChannel }) => {
 
     setIsLoading(true);
     try {
-      // TODO: Implement channel addition logic
       await onAddChannel(channelInput.trim());
       setChannelInput('');
     } catch (error) {
