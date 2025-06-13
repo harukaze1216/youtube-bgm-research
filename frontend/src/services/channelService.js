@@ -193,6 +193,123 @@ export function isBGMChannel(title, description) {
 }
 
 /**
+ * チャンネルの最も人気の動画を取得
+ */
+export async function fetchChannelMostPopularVideo(uploadsPlaylistId) {
+  try {
+    const API_KEY = 'AIzaSyDN1sTee52txGVYpQwSWgAD7FUr4NNJinQ';
+    const baseUrl = 'https://www.googleapis.com/youtube/v3/playlistItems';
+    
+    let mostPopularVideo = null;
+    let nextPageToken = '';
+    let pageCount = 0;
+    const maxPages = 5; // 最大5ページ（最大250動画）まで検索
+    
+    console.log(`🔥 最も人気の動画を検索中: ${uploadsPlaylistId}`);
+    
+    do {
+      const params = new URLSearchParams({
+        key: API_KEY,
+        playlistId: uploadsPlaylistId,
+        part: 'snippet',
+        maxResults: 50
+      });
+      
+      if (nextPageToken) {
+        params.append('pageToken', nextPageToken);
+      }
+      
+      const response = await fetch(`${baseUrl}?${params}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'API呼び出しエラー');
+      }
+      
+      if (data.items && data.items.length > 0) {
+        // このページの動画の詳細情報を取得
+        const videoIds = data.items.map(item => item.snippet.resourceId.videoId);
+        const videoDetails = await fetchVideoStatistics(videoIds);
+        
+        // 動画詳細と組み合わせて最も人気の動画を探す
+        for (let i = 0; i < data.items.length; i++) {
+          const item = data.items[i];
+          const stats = videoDetails[item.snippet.resourceId.videoId];
+          
+          if (stats) {
+            const viewCount = parseInt(stats.viewCount) || 0;
+            
+            if (!mostPopularVideo || viewCount > mostPopularVideo.viewCount) {
+              mostPopularVideo = {
+                title: item.snippet.title,
+                viewCount: viewCount,
+                likeCount: parseInt(stats.likeCount) || 0,
+                commentCount: parseInt(stats.commentCount) || 0,
+                publishedAt: item.snippet.publishedAt,
+                thumbnailUrl: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url,
+                videoId: item.snippet.resourceId.videoId,
+                url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`
+              };
+            }
+          }
+        }
+        
+        console.log(`   ページ ${pageCount + 1}: ${data.items.length}本の動画をチェック`);
+        console.log(`   現在の最人気動画: ${mostPopularVideo?.title} (${mostPopularVideo?.viewCount?.toLocaleString()}回再生)`);
+      }
+      
+      nextPageToken = data.nextPageToken;
+      pageCount++;
+      
+      // API制限対策の待機
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+    } while (nextPageToken && pageCount < maxPages);
+    
+    console.log(`✅ 最人気動画検索完了: ${mostPopularVideo?.title || 'なし'}`);
+    return mostPopularVideo;
+    
+  } catch (error) {
+    console.error('最人気動画取得エラー:', error);
+    return null;
+  }
+}
+
+/**
+ * 複数動画の統計情報を一括取得
+ */
+async function fetchVideoStatistics(videoIds) {
+  try {
+    const API_KEY = 'AIzaSyDN1sTee52txGVYpQwSWgAD7FUr4NNJinQ';
+    const baseUrl = 'https://www.googleapis.com/youtube/v3/videos';
+    const params = new URLSearchParams({
+      key: API_KEY,
+      id: videoIds.join(','),
+      part: 'statistics'
+    });
+    
+    const response = await fetch(`${baseUrl}?${params}`);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'API呼び出しエラー');
+    }
+    
+    const videoStats = {};
+    if (data.items) {
+      data.items.forEach(item => {
+        videoStats[item.id] = item.statistics;
+      });
+    }
+    
+    return videoStats;
+  } catch (error) {
+    console.error('動画統計取得エラー:', error);
+    return {};
+  }
+}
+
+/**
  * チャンネルの成長率を計算
  */
 export function calculateGrowthRate(channelInfo, firstVideo) {

@@ -157,7 +157,8 @@ function App() {
         ...channelInfo,
         firstVideoDate: firstVideo?.publishedAt || channelInfo.publishedAt,
         growthRate,
-        keywords: [] // BGM関連キーワードを後で追加可能
+        keywords: [], // BGM関連キーワードを後で追加可能
+        uploadsPlaylistId: channelInfo.uploadsPlaylistId // 人気動画取得用
       };
       
       // Firestoreに保存
@@ -219,21 +220,50 @@ function App() {
 
   const handleChannelClick = async (channel) => {
     setSelectedChannel(channel);
-    setChannelDetails(null); // Reset previous details
-    
-    // TODO: Fetch most popular video data from backend
-    // For now, use dummy data
-    const dummyPopularVideo = {
-      title: "最も人気の動画（取得中...）",
-      viewCount: 0,
-      thumbnailUrl: "",
-      url: ""
-    };
-    
     setChannelDetails({
       ...channel,
-      mostPopularVideo: dummyPopularVideo
+      mostPopularVideo: {
+        title: "最も人気の動画（取得中...）",
+        viewCount: 0,
+        thumbnailUrl: "",
+        url: ""
+      }
     });
+    
+    try {
+      const { fetchChannelMostPopularVideo } = await import('./services/channelService');
+      
+      // 最も人気の動画を取得
+      const popularVideo = await fetchChannelMostPopularVideo(channel.uploadsPlaylistId);
+      
+      if (popularVideo) {
+        setChannelDetails({
+          ...channel,
+          mostPopularVideo: popularVideo
+        });
+      } else {
+        setChannelDetails({
+          ...channel,
+          mostPopularVideo: {
+            title: "人気動画が見つかりませんでした",
+            viewCount: 0,
+            thumbnailUrl: "",
+            url: ""
+          }
+        });
+      }
+    } catch (error) {
+      console.error('人気動画取得エラー:', error);
+      setChannelDetails({
+        ...channel,
+        mostPopularVideo: {
+          title: "人気動画の取得に失敗しました",
+          viewCount: 0,
+          thumbnailUrl: "",
+          url: ""
+        }
+      });
+    }
   };
 
   const closeModal = () => {
