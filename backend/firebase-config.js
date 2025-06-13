@@ -41,7 +41,9 @@ export const db = admin.firestore();
 
 // Collections
 export const COLLECTIONS = {
-  BGM_CHANNELS: 'bgm_channels'
+  BGM_CHANNELS: 'bgm_channels',
+  TRACKED_CHANNELS: 'tracked_channels',
+  TRACKING_DATA: 'tracking_data'
 };
 
 export default app;

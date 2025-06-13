@@ -1,6 +1,6 @@
 import ChannelCard from './ChannelCard';
 
-const ChannelGrid = ({ channels, onChannelClick }) => {
+const ChannelGrid = ({ channels, onChannelClick, onAddToTracking }) => {
   if (channels.length === 0) {
     return (
       <div className="text-center py-16">
@@ -22,6 +22,7 @@ const ChannelGrid = ({ channels, onChannelClick }) => {
           key={channel.channelId}
           channel={channel}
           onChannelClick={onChannelClick}
+          onAddToTracking={onAddToTracking}
         />
       ))}
     </div>

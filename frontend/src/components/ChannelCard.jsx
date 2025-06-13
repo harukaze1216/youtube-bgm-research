@@ -1,4 +1,4 @@
-const ChannelCard = ({ channel, onChannelClick }) => {
+const ChannelCard = ({ channel, onChannelClick, onAddToTracking }) => {
   const formatNumber = (num) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
@@ -21,6 +21,13 @@ const ChannelCard = ({ channel, onChannelClick }) => {
     return 'bg-gray-100 text-gray-800';
   };
 
+  const isNewChannel = (createdAt) => {
+    if (!createdAt) return false;
+    const created = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+    const daysSinceAdded = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+    return daysSinceAdded <= 7; // 7日以内に追加されたチャンネル
+  };
+
   return (
     <div 
       className="channel-card cursor-pointer"
@@ -37,9 +44,16 @@ const ChannelCard = ({ channel, onChannelClick }) => {
         />
         
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate mb-1">
-            {channel.channelTitle}
-          </h3>
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-gray-900 truncate">
+              {channel.channelTitle}
+            </h3>
+            {isNewChannel(channel.createdAt) && (
+              <span className="inline-block px-2 py-1 text-xs font-bold bg-red-100 text-red-800 rounded-full animate-pulse">
+                NEW!
+              </span>
+            )}
+          </div>
           
           <div className="flex flex-wrap gap-2 mb-3">
             <span className="text-sm text-gray-600">
@@ -77,15 +91,32 @@ const ChannelCard = ({ channel, onChannelClick }) => {
               成長率 {channel.growthRate || 0}%
             </span>
             
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(channel.channelUrl, '_blank');
-              }}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-            >
-              チャンネル訪問 →
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToTracking(channel);
+                }}
+                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                  channel.isTracked 
+                    ? 'bg-green-100 text-green-800 border border-green-300'
+                    : 'bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200'
+                }`}
+                disabled={channel.isTracked}
+              >
+                {channel.isTracked ? '追跡中' : '追跡に追加'}
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(channel.channelUrl, '_blank');
+                }}
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                訪問 →
+              </button>
+            </div>
           </div>
         </div>
       </div>

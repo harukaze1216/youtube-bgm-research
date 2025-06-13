@@ -133,6 +133,53 @@ const ChannelModal = ({ channel, isOpen, onClose, onRemove }) => {
               </div>
             </div>
           )}
+          
+          {channel.mostPopularVideo && (
+            <div className="mb-6">
+              <h5 className="text-sm font-semibold text-gray-900 mb-3">
+                🔥 最も人気の動画
+              </h5>
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-lg p-4 border border-orange-200">
+                <div className="flex gap-4">
+                  {channel.mostPopularVideo.thumbnailUrl && (
+                    <img
+                      src={channel.mostPopularVideo.thumbnailUrl}
+                      alt={channel.mostPopularVideo.title}
+                      className="w-24 h-18 rounded object-cover flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1">
+                    <h6 className="font-medium text-gray-900 mb-2 line-clamp-2">
+                      {channel.mostPopularVideo.title}
+                    </h6>
+                    <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-3">
+                      <span className="flex items-center gap-1">
+                        👁️ {formatNumber(channel.mostPopularVideo.viewCount)} 回視聴
+                      </span>
+                      {channel.mostPopularVideo.likeCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          👍 {formatNumber(channel.mostPopularVideo.likeCount)}
+                        </span>
+                      )}
+                      {channel.mostPopularVideo.commentCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          💬 {formatNumber(channel.mostPopularVideo.commentCount)}
+                        </span>
+                      )}
+                    </div>
+                    <a
+                      href={channel.mostPopularVideo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 text-sm font-medium"
+                    >
+                      動画を見る →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="flex gap-3 p-6 border-t border-gray-200">

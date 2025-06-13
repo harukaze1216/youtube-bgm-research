@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import Header from './components/Header';
 import SearchSection from './components/SearchSection';
@@ -13,6 +13,8 @@ function App() {
   const [filteredChannels, setFilteredChannels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedChannel, setSelectedChannel] = useState(null);
+  const [channelDetails, setChannelDetails] = useState(null);
+  const [trackedChannels, setTrackedChannels] = useState(new Set());
   const [filters, setFilters] = useState({
     sortBy: 'growth_rate',
     filterBy: 'all',
@@ -22,12 +24,13 @@ function App() {
   // Load channels from Firestore
   useEffect(() => {
     loadChannels();
+    loadTrackedChannels();
   }, []);
 
   // Apply filters and sorting
   useEffect(() => {
     applyFilters();
-  }, [channels, filters]);
+  }, [channels, filters, trackedChannels]);
 
   const loadChannels = async () => {
     try {
@@ -45,8 +48,25 @@ function App() {
     }
   };
 
+  const loadTrackedChannels = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'tracked_channels'));
+      const trackedIds = new Set(
+        querySnapshot.docs
+          .filter(doc => doc.data().isActive)
+          .map(doc => doc.id)
+      );
+      setTrackedChannels(trackedIds);
+    } catch (error) {
+      console.error('追跡チャンネルデータの読み込みエラー:', error);
+    }
+  };
+
   const applyFilters = () => {
-    let filtered = [...channels];
+    let filtered = channels.map(channel => ({
+      ...channel,
+      isTracked: trackedChannels.has(channel.channelId)
+    }));
 
     // Search filter
     if (filters.search) {
@@ -107,12 +127,62 @@ function App() {
     }
   };
 
-  const handleChannelClick = (channel) => {
+  const handleAddToTracking = async (channel) => {
+    try {
+      if (trackedChannels.has(channel.channelId)) {
+        return; // 既に追跡中
+      }
+
+      // 追跡リストに追加
+      await setDoc(doc(db, 'tracked_channels', channel.channelId), {
+        channelId: channel.channelId,
+        channelTitle: channel.channelTitle,
+        channelUrl: channel.channelUrl,
+        thumbnailUrl: channel.thumbnailUrl,
+        addedAt: new Date(),
+        isActive: true
+      });
+
+      // 初回トラッキングデータを記録
+      await setDoc(doc(db, 'tracking_data', `${channel.channelId}_${new Date().toISOString().split('T')[0]}`), {
+        channelId: channel.channelId,
+        subscriberCount: channel.subscriberCount,
+        videoCount: channel.videoCount,
+        totalViews: channel.totalViews,
+        recordedAt: new Date()
+      });
+
+      // ローカル状態を更新
+      setTrackedChannels(prev => new Set([...prev, channel.channelId]));
+      
+      console.log(`✅ Added to tracking: ${channel.channelTitle}`);
+    } catch (error) {
+      console.error('追跡追加エラー:', error);
+    }
+  };
+
+  const handleChannelClick = async (channel) => {
     setSelectedChannel(channel);
+    setChannelDetails(null); // Reset previous details
+    
+    // TODO: Fetch most popular video data from backend
+    // For now, use dummy data
+    const dummyPopularVideo = {
+      title: "最も人気の動画（取得中...）",
+      viewCount: 0,
+      thumbnailUrl: "",
+      url: ""
+    };
+    
+    setChannelDetails({
+      ...channel,
+      mostPopularVideo: dummyPopularVideo
+    });
   };
 
   const closeModal = () => {
     setSelectedChannel(null);
+    setChannelDetails(null);
   };
 
   if (loading) {
@@ -143,11 +213,12 @@ function App() {
         <ChannelGrid 
           channels={filteredChannels}
           onChannelClick={handleChannelClick}
+          onAddToTracking={handleAddToTracking}
         />
       </main>
       
       <ChannelModal
-        channel={selectedChannel}
+        channel={channelDetails || selectedChannel}
         isOpen={!!selectedChannel}
         onClose={closeModal}
         onRemove={handleRemoveChannel}

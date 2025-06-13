@@ -202,3 +202,55 @@ export function calculateGrowthRate(subscriberCount, publishedAt) {
     return 0;
   }
 }
+
+/**
+ * Get channel's most popular video
+ * @param {string} channelId - Channel ID
+ * @returns {Promise<Object|null>} Most popular video data or null
+ */
+export async function getChannelMostPopularVideo(channelId) {
+  try {
+    // Search for videos from this channel ordered by view count
+    const response = await youtube.search.list({
+      part: 'snippet',
+      channelId: channelId,
+      maxResults: 50,
+      order: 'viewCount', // Order by view count (most popular first)
+      type: 'video'
+    });
+
+    if (!response.data.items || response.data.items.length === 0) {
+      return null;
+    }
+
+    // Get the first video (most popular)
+    const mostPopularVideo = response.data.items[0];
+    
+    // Get detailed video statistics
+    const videoDetailsResponse = await youtube.videos.list({
+      part: 'statistics,snippet',
+      id: mostPopularVideo.id.videoId
+    });
+
+    if (!videoDetailsResponse.data.items || videoDetailsResponse.data.items.length === 0) {
+      return null;
+    }
+
+    const videoDetails = videoDetailsResponse.data.items[0];
+    
+    return {
+      videoId: videoDetails.id,
+      title: videoDetails.snippet.title,
+      description: videoDetails.snippet.description,
+      thumbnailUrl: videoDetails.snippet.thumbnails?.medium?.url || videoDetails.snippet.thumbnails?.default?.url,
+      publishedAt: videoDetails.snippet.publishedAt,
+      viewCount: parseInt(videoDetails.statistics.viewCount || 0),
+      likeCount: parseInt(videoDetails.statistics.likeCount || 0),
+      commentCount: parseInt(videoDetails.statistics.commentCount || 0),
+      url: `https://www.youtube.com/watch?v=${videoDetails.id}`
+    };
+  } catch (error) {
+    console.error(`Most popular video error for channel "${channelId}":`, error.message);
+    return null;
+  }
+}

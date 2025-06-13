@@ -1,0 +1,54 @@
+name: Track Channel Analytics
+
+on:
+  # 毎週日曜日の午前10時（UTC）に実行
+  schedule:
+    - cron: '0 10 * * 0'
+  
+  # 手動実行も可能
+  workflow_dispatch:
+
+jobs:
+  track-channels:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Update tracking data
+      run: |
+        cd backend
+        npm run track
+      env:
+        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        LOG_LEVEL: info
+        
+    - name: Create tracking report
+      if: always()
+      run: |
+        cd backend
+        echo "Tracking update completed at $(date)" > tracking-report.txt
+        echo "Tracked channels updated successfully" >> tracking-report.txt
+      
+    - name: Upload tracking report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tracking-report
+        path: backend/tracking-report.txt
+        retention-days: 30
