@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { setGitHubToken, hasGitHubToken, validateGitHubToken } from '../services/githubService';
 
 const Settings = () => {
   const [settings, setSettings] = useState({
     // 基本設定
     youtubeApiKey: '',
+    githubToken: '',
     searchKeywords: ['BGM', 'instrumental', 'background music', 'ambient', 'lo-fi', 'chill', 'relaxing', 'study music'],
     
     // 収集設定
@@ -43,6 +45,7 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState('basic');
+  const [githubTokenStatus, setGithubTokenStatus] = useState('unchecked');
 
   useEffect(() => {
     loadSettings();
@@ -53,6 +56,12 @@ const Settings = () => {
       const settingsDoc = await getDoc(doc(db, 'settings', 'app_config'));
       if (settingsDoc.exists()) {
         setSettings(prev => ({ ...prev, ...settingsDoc.data() }));
+      }
+      
+      // GitHub Tokenの状態をチェック
+      if (hasGitHubToken()) {
+        setGithubTokenStatus('valid');
+        setSettings(prev => ({ ...prev, githubToken: '●●●●●●●●●●●●' }));
       }
     } catch (error) {
       console.error('設定の読み込みエラー:', error);
@@ -65,8 +74,34 @@ const Settings = () => {
   const saveSettings = async () => {
     try {
       setSaving(true);
-      await setDoc(doc(db, 'settings', 'app_config'), settings);
-      setMessage('設定を保存しました');
+      
+      // GitHub Tokenの処理
+      if (settings.githubToken && settings.githubToken !== '●●●●●●●●●●●●') {
+        const isValid = await validateGitHubToken(settings.githubToken);
+        if (isValid) {
+          setGitHubToken(settings.githubToken);
+          setGithubTokenStatus('valid');
+          setMessage('設定を保存しました（GitHub Token有効）');
+        } else {
+          setGithubTokenStatus('invalid');
+          setMessage('GitHub Tokenが無効です');
+          return;
+        }
+      } else if (settings.githubToken === '') {
+        setGitHubToken('');
+        setGithubTokenStatus('unchecked');
+      }
+      
+      // 設定をFirestoreに保存（GitHub Tokenは除く）
+      const settingsToSave = { ...settings };
+      delete settingsToSave.githubToken;
+      
+      await setDoc(doc(db, 'settings', 'app_config'), settingsToSave);
+      
+      if (!settings.githubToken || settings.githubToken === '●●●●●●●●●●●●') {
+        setMessage('設定を保存しました');
+      }
+      
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
       console.error('設定の保存エラー:', error);
@@ -233,6 +268,34 @@ const Settings = () => {
                   />
                   <p className="text-sm text-gray-500 mt-1">
                     Google Cloud Consoleで取得したAPIキーを設定してください
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    GitHub Personal Access Token
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={settings.githubToken}
+                      onChange={(e) => setSettings(prev => ({ ...prev, githubToken: e.target.value }))}
+                      className={`w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 pr-10 ${
+                        githubTokenStatus === 'valid' ? 'border-green-300' :
+                        githubTokenStatus === 'invalid' ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="ghp_xxxxxxxxxxxxxxxxxx"
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      {githubTokenStatus === 'valid' && <span className="text-green-500">✓</span>}
+                      {githubTokenStatus === 'invalid' && <span className="text-red-500">✗</span>}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    不具合・要望報告機能でGitHub Issuesに投稿するために必要です
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    GitHub Settings → Developer settings → Personal access tokens で作成
                   </p>
                 </div>
 
