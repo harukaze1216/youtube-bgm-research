@@ -77,6 +77,12 @@ const ChannelModal = ({ channel, isOpen, onClose, onRemove }) => {
                 <div>
                   <span className="text-gray-600">開設日:</span>
                   <span className="ml-2 font-semibold">
+                    {formatDate(channel.publishedAt)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">初投稿:</span>
+                  <span className="ml-2 font-semibold">
                     {formatDate(channel.firstVideoDate)}
                   </span>
                 </div>

@@ -47,7 +47,7 @@ const ChannelCard = ({ channel, onChannelClick }) => {
             </span>
             <span className="text-sm text-gray-500">•</span>
             <span className="text-sm text-gray-600">
-              開設: {formatDate(channel.firstVideoDate)}
+              開設: {formatDate(channel.publishedAt)}
             </span>
           </div>
           
