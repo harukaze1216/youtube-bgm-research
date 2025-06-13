@@ -8,6 +8,7 @@
     "start": "node index.js",
     "collect": "node collect-channels.js",
     "track": "node track-channels.js",
+    "fetch": "node manual-fetch.js",
     "dev": "node --watch index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
