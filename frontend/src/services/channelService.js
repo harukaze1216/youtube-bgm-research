@@ -80,31 +80,62 @@ export async function fetchChannelFirstVideo(uploadsPlaylistId) {
   try {
     const API_KEY = 'AIzaSyDN1sTee52txGVYpQwSWgAD7FUr4NNJinQ';
     const baseUrl = 'https://www.googleapis.com/youtube/v3/playlistItems';
-    const params = new URLSearchParams({
-      key: API_KEY,
-      playlistId: uploadsPlaylistId,
-      part: 'snippet',
-      order: 'date',
-      maxResults: 1
-    });
     
-    const response = await fetch(`${baseUrl}?${params}`);
-    const data = await response.json();
+    let oldestVideo = null;
+    let nextPageToken = '';
+    let pageCount = 0;
+    const maxPages = 10; // 最大10ページ（最大500動画）まで検索
     
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'API呼び出しエラー');
-    }
+    console.log(`📹 最初の動画を検索中: ${uploadsPlaylistId}`);
     
-    if (data.items && data.items.length > 0) {
-      const video = data.items[0];
-      return {
-        title: video.snippet.title,
-        publishedAt: video.snippet.publishedAt,
-        videoId: video.snippet.resourceId.videoId
-      };
-    }
+    do {
+      const params = new URLSearchParams({
+        key: API_KEY,
+        playlistId: uploadsPlaylistId,
+        part: 'snippet',
+        maxResults: 50
+      });
+      
+      if (nextPageToken) {
+        params.append('pageToken', nextPageToken);
+      }
+      
+      const response = await fetch(`${baseUrl}?${params}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'API呼び出しエラー');
+      }
+      
+      if (data.items && data.items.length > 0) {
+        // このページの動画から最も古いものを探す
+        for (const item of data.items) {
+          const publishedAt = new Date(item.snippet.publishedAt);
+          
+          if (!oldestVideo || publishedAt < new Date(oldestVideo.publishedAt)) {
+            oldestVideo = {
+              title: item.snippet.title,
+              publishedAt: item.snippet.publishedAt,
+              videoId: item.snippet.resourceId.videoId
+            };
+          }
+        }
+        
+        console.log(`   ページ ${pageCount + 1}: ${data.items.length}本の動画をチェック`);
+        console.log(`   現在の最古動画: ${oldestVideo?.title} (${oldestVideo?.publishedAt})`);
+      }
+      
+      nextPageToken = data.nextPageToken;
+      pageCount++;
+      
+      // API制限対策の待機
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } while (nextPageToken && pageCount < maxPages);
     
-    return null;
+    console.log(`✅ 最初の動画検索完了: ${oldestVideo?.title || 'なし'}`);
+    return oldestVideo;
+    
   } catch (error) {
     console.error('最初の動画取得エラー:', error);
     return null;
