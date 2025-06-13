@@ -175,6 +175,29 @@ export async function searchChannels(filters = {}) {
 }
 
 /**
+ * 既存のチャンネルIDセットを取得
+ */
+export async function getExistingChannelIds() {
+  try {
+    const snapshot = await db.collection(COLLECTIONS.BGM_CHANNELS).get();
+    
+    const existingIds = new Set();
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.channelId) {
+        existingIds.add(data.channelId);
+      }
+    });
+    
+    console.log(`📊 Found ${existingIds.size} existing channels in database`);
+    return existingIds;
+  } catch (error) {
+    console.error('既存チャンネルID取得エラー:', error);
+    return new Set();
+  }
+}
+
+/**
  * チャンネル統計を取得
  * @returns {Promise<Object>} 統計データ
  */

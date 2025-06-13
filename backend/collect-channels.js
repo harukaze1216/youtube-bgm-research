@@ -13,9 +13,9 @@ import {
   getChannelLatestVideo,
   extractChannelIds
 } from './youtube-api.js';
-import { getRandomKeywords } from './keywords.js';
+import { getRandomKeywords, getRotatingKeywords } from './keywords.js';
 import { filterChannels } from './channel-filter.js';
-import { saveChannels, getChannelStats } from './firestore-service.js';
+import { saveChannels, getChannelStats, getExistingChannelIds } from './firestore-service.js';
 
 dotenv.config();
 
@@ -39,37 +39,56 @@ async function main() {
   console.log('=====================================');
   
   try {
-    // 1. キーワード選択
-    const keywords = getRandomKeywords(COLLECTION_CONFIG.keywordCount);
-    console.log(`📝 Selected keywords: ${keywords.join(', ')}`);
+    // 1. 既存チャンネルIDを取得（重複回避のため）
+    const existingChannelIds = await getExistingChannelIds();
+    
+    // 2. キーワード選択（ローテーション方式で多様性を確保）
+    const keywords = getRotatingKeywords(COLLECTION_CONFIG.keywordCount);
+    console.log(`📝 Selected keywords (rotating): ${keywords.join(', ')}`);
 
-    // 2. 動画検索とチャンネルID収集
+    // 3. 動的な検索期間を設定（既存チャンネル数に応じて調整）
+    const searchPeriodMonths = existingChannelIds.size > 10 ? 
+      COLLECTION_CONFIG.monthsThreshold + 2 : // 既存チャンネルが多い場合は期間を延長
+      COLLECTION_CONFIG.monthsThreshold;
+    
+    console.log(`📅 Search period: ${searchPeriodMonths} months (adjusted based on ${existingChannelIds.size} existing channels)`);
+
+    // 4. 動画検索とチャンネルID収集
     const allChannelIds = new Set();
     
     for (const keyword of keywords) {
       console.log(`\n🔍 Searching videos for: "${keyword}"`);
       
-      // 3ヶ月以内の動画のみを検索
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - COLLECTION_CONFIG.monthsThreshold);
+      // 動的な期間で動画を検索
+      const searchStartDate = new Date();
+      searchStartDate.setMonth(searchStartDate.getMonth() - searchPeriodMonths);
       
       const videos = await searchVideos(
         keyword, 
         COLLECTION_CONFIG.videosPerKeyword,
-        threeMonthsAgo.toISOString()
+        searchStartDate.toISOString()
       );
       
       const channelIds = extractChannelIds(videos);
-      console.log(`   Found ${channelIds.size} unique channels`);
       
-      // チャンネルIDを統合
-      channelIds.forEach(id => allChannelIds.add(id));
+      // 既存チャンネルを除外
+      const newChannelIds = new Set();
+      channelIds.forEach(id => {
+        if (!existingChannelIds.has(id)) {
+          newChannelIds.add(id);
+        }
+      });
+      
+      console.log(`   Found ${channelIds.size} channels (${newChannelIds.size} new, ${channelIds.size - newChannelIds.size} existing)`);
+      
+      // 新しいチャンネルIDのみを統合
+      newChannelIds.forEach(id => allChannelIds.add(id));
       
       // API制限対策の待機
       await sleep(1000);
     }
 
-    console.log(`\n📊 Total unique channels found: ${allChannelIds.size}`);
+    console.log(`\n📊 Total new channels to process: ${allChannelIds.size}`);
 
     // 3. チャンネル詳細情報の取得
     const channelsWithDetails = [];

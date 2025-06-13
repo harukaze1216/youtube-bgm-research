@@ -128,3 +128,21 @@ export function extractMatchingKeywords(title = '', description = '') {
     text.includes(keyword.toLowerCase())
   );
 }
+
+/**
+ * 日付ベースでキーワードをローテーション
+ * @param {number} count - 選択するキーワード数
+ * @returns {string[]} ローテーションで選択されたキーワード
+ */
+export function getRotatingKeywords(count = 8) {
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+  const startIndex = (dayOfYear * 3) % bgmKeywords.length; // 3日ごとに開始位置をシフト
+  
+  const selectedKeywords = [];
+  for (let i = 0; i < count; i++) {
+    const index = (startIndex + i) % bgmKeywords.length;
+    selectedKeywords.push(bgmKeywords[index]);
+  }
+  
+  return selectedKeywords;
+}

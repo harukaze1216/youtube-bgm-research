@@ -17,18 +17,29 @@ const youtube = google.youtube({
  */
 export async function searchVideos(query, maxResults = 50, publishedAfter = null) {
   try {
+    // ランダム要素を追加して検索結果の多様性を確保
+    const orders = ['relevance', 'date', 'viewCount'];
+    const randomOrder = orders[Math.floor(Math.random() * orders.length)];
+    
     const searchParams = {
       part: 'snippet',
       q: query,
       type: 'video',
       maxResults,
-      order: 'relevance',
+      order: randomOrder,
       regionCode: 'JP',
       relevanceLanguage: 'ja'
     };
 
     if (publishedAfter) {
       searchParams.publishedAfter = publishedAfter;
+      
+      // ランダムな終了日を設定してより多様な期間から検索
+      if (Math.random() > 0.5) {
+        const randomEndDate = new Date();
+        randomEndDate.setDate(randomEndDate.getDate() - Math.floor(Math.random() * 30));
+        searchParams.publishedBefore = randomEndDate.toISOString();
+      }
     }
 
     const response = await youtube.search.list(searchParams);
