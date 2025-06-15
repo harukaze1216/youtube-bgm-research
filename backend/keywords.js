@@ -130,12 +130,45 @@ export function extractMatchingKeywords(title = '', description = '') {
 }
 
 /**
+ * Firestoreから設定されたキーワードを取得
+ * @returns {Promise<string[]>} 設定されたキーワード配列
+ */
+export async function getKeywordsFromSettings() {
+  try {
+    // Firebase Admin SDKを使用してFirestoreからデータを取得
+    const { getFirestore } = await import('firebase-admin/firestore');
+    const db = getFirestore();
+    
+    const settingsDoc = await db.collection('settings').doc('app_config').get();
+    
+    if (settingsDoc.exists) {
+      const settings = settingsDoc.data();
+      const searchKeywords = settings.searchKeywords;
+      
+      if (searchKeywords && Array.isArray(searchKeywords) && searchKeywords.length > 0) {
+        console.log(`🔍 Using keywords from Firestore settings: ${searchKeywords.length} keywords`);
+        return searchKeywords;
+      }
+    }
+    
+    // フォールバック: デフォルトキーワードを使用
+    console.log('⚠️ Settings not found or empty, using default keywords');
+    return getAllKeywords();
+  } catch (error) {
+    console.error('❌ Error loading keywords from settings:', error.message);
+    console.log('🔄 Falling back to default keywords');
+    return getAllKeywords();
+  }
+}
+
+/**
  * 日付ベースでキーワードをローテーション
  * @param {number} count - 選択するキーワード数
+ * @param {string[]} keywords - 使用するキーワード配列（オプション）
  * @returns {string[]} ローテーションで選択されたキーワード
  */
-export function getRotatingKeywords(count = 8) {
-  const allKeywords = getAllKeywords();
+export function getRotatingKeywords(count = 8, keywords = null) {
+  const allKeywords = keywords || getAllKeywords();
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
   const startIndex = (dayOfYear * 3) % allKeywords.length; // 3日ごとに開始位置をシフト
   
@@ -146,4 +179,19 @@ export function getRotatingKeywords(count = 8) {
   }
   
   return selectedKeywords;
+}
+
+/**
+ * 設定を考慮したキーワード取得（非同期版）
+ * @param {number} count - 選択するキーワード数
+ * @returns {Promise<string[]>} 選択されたキーワード配列
+ */
+export async function getRotatingKeywordsFromSettings(count = 8) {
+  try {
+    const keywordsFromSettings = await getKeywordsFromSettings();
+    return getRotatingKeywords(count, keywordsFromSettings);
+  } catch (error) {
+    console.error('Error getting keywords from settings:', error);
+    return getRotatingKeywords(count);
+  }
 }

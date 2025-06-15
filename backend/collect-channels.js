@@ -13,7 +13,7 @@ import {
   getChannelLatestVideo,
   extractChannelIds
 } from './youtube-api.js';
-import { getRandomKeywords, getRotatingKeywords } from './keywords.js';
+import { getRandomKeywords, getRotatingKeywords, getRotatingKeywordsFromSettings } from './keywords.js';
 import { filterChannels } from './channel-filter.js';
 import { saveChannels, getChannelStats, getExistingChannelIds } from './firestore-service.js';
 
@@ -43,9 +43,9 @@ async function main() {
     // 1. 既存チャンネルIDを取得（重複回避のため）
     const existingChannelIds = await getExistingChannelIds();
     
-    // 2. キーワード選択（ローテーション方式で多様性を確保）
-    const keywords = getRotatingKeywords(COLLECTION_CONFIG.keywordCount);
-    console.log(`📝 Selected keywords (rotating): ${keywords.join(', ')}`);
+    // 2. キーワード選択（設定から取得、フォールバックあり）
+    const keywords = await getRotatingKeywordsFromSettings(COLLECTION_CONFIG.keywordCount);
+    console.log(`📝 Selected keywords (from settings): ${keywords.join(', ')}`);
 
     // 3. 動的な検索期間を設定（既存チャンネル数に応じて調整）
     const searchPeriodMonths = existingChannelIds.size > 10 ? 
