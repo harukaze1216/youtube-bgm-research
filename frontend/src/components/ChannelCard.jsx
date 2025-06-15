@@ -1,4 +1,7 @@
+import { useState } from 'react';
+
 const ChannelCard = ({ channel, onChannelClick, onAddToTracking }) => {
+  const [isViewed, setIsViewed] = useState(channel.isViewed || false);
   const formatNumber = (num) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
@@ -22,16 +25,33 @@ const ChannelCard = ({ channel, onChannelClick, onAddToTracking }) => {
   };
 
   const isNewChannel = (createdAt) => {
+    if (isViewed) return false; // 表示済みの場合はNEWを表示しない
     if (!createdAt) return false;
     const created = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
     const daysSinceAdded = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
     return daysSinceAdded <= 7; // 7日以内に追加されたチャンネル
   };
 
+  const handleCardClick = async () => {
+    // NEWバッジを消すためにチャンネルを表示済みとしてマーク
+    if (!isViewed && channel.id) {
+      try {
+        // Firestore更新ロジックをここに追加する必要があります
+        setIsViewed(true);
+      } catch (error) {
+        console.error('Error marking channel as viewed:', error);
+      }
+    }
+
+    if (onChannelClick) {
+      onChannelClick(channel);
+    }
+  };
+
   return (
     <div 
       className="channel-card cursor-pointer"
-      onClick={() => onChannelClick(channel)}
+      onClick={handleCardClick}
     >
       <div className="flex items-start gap-4">
         <img

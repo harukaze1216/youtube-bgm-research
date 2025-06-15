@@ -21,14 +21,15 @@ dotenv.config();
 
 // 収集設定
 const COLLECTION_CONFIG = {
-  keywordCount: 8,          // 使用するキーワード数
-  videosPerKeyword: 40,     // キーワードあたりの動画検索数
-  monthsThreshold: 3,       // 何ヶ月以内のチャンネルを対象とするか
-  minSubscribers: 1000,     // 最小登録者数
+  keywordCount: 12,         // 使用するキーワード数（増加）
+  videosPerKeyword: 50,     // キーワードあたりの動画検索数（増加）
+  monthsThreshold: 6,       // 何ヶ月以内のチャンネルを対象とするか（延長）
+  minSubscribers: 500,      // 最小登録者数（緩和）
   maxSubscribers: 500000,   // 最大登録者数
-  minVideos: 5,             // 最小動画数
-  minGrowthRate: 10,        // 最小成長率
-  maxChannelsPerRun: 150,   // 1回の実行で処理する最大チャンネル数
+  minVideos: 3,             // 最小動画数（緩和）
+  minGrowthRate: 5,         // 最小成長率（緩和）
+  maxChannelsPerRun: 200,   // 1回の実行で処理する最大チャンネル数（増加）
+  targetNewChannels: 10,    // 目標新規チャンネル数
 };
 
 /**
