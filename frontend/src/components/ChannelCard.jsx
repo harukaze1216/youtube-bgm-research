@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { markChannelAsViewed } from '../services/channelService';
 
 const ChannelCard = ({ channel, onChannelClick, onAddToTracking }) => {
   const [isViewed, setIsViewed] = useState(channel.isViewed || false);
@@ -36,7 +37,7 @@ const ChannelCard = ({ channel, onChannelClick, onAddToTracking }) => {
     // NEWバッジを消すためにチャンネルを表示済みとしてマーク
     if (!isViewed && channel.id) {
       try {
-        // Firestore更新ロジックをここに追加する必要があります
+        await markChannelAsViewed(channel.id);
         setIsViewed(true);
       } catch (error) {
         console.error('Error marking channel as viewed:', error);

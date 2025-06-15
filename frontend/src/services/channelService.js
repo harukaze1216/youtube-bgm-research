@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 /**
@@ -348,6 +348,50 @@ export async function addChannelToFirestore(channelData) {
     return true;
   } catch (error) {
     console.error('Firestore保存エラー:', error);
+    throw error;
+  }
+}
+
+/**
+ * チャンネルを表示済みとしてマーク
+ * @param {string} channelDocId - Firestoreドキュメント ID
+ */
+export async function markChannelAsViewed(channelDocId) {
+  try {
+    const channelRef = doc(db, 'bgm_channels', channelDocId);
+    await updateDoc(channelRef, {
+      isViewed: true,
+      viewedAt: serverTimestamp()
+    });
+    console.log(`Channel marked as viewed: ${channelDocId}`);
+  } catch (error) {
+    console.error('Error marking channel as viewed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Firestoreからチャンネル一覧を取得（フィルタ対応）
+ * @param {Object} filters - フィルタ条件
+ */
+export async function getChannelsFromFirestore(filters = {}) {
+  try {
+    let q = collection(db, 'bgm_channels');
+    
+    // 基本的なクエリにソートを追加
+    const querySnapshot = await getDocs(q);
+    const channels = [];
+    
+    querySnapshot.forEach((doc) => {
+      channels.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    return channels;
+  } catch (error) {
+    console.error('Error getting channels from Firestore:', error);
     throw error;
   }
 }
