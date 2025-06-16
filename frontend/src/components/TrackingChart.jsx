@@ -20,33 +20,61 @@ const TrackingChart = ({ trackingData, title }) => {
     <div className="bg-white rounded-lg p-6 border border-gray-200">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
       
-      {/* Simple line chart visualization */}
+      {/* Line chart visualization */}
       <div className="mb-4">
-        <div className="flex items-end h-32 gap-2">
-          {trackingData.map((point, index) => {
-            const height = maxValue === minValue ? 50 : ((point.value - minValue) / (maxValue - minValue)) * 100;
-            const isLatest = index === trackingData.length - 1;
-            console.log(`Point ${index}: value=${point.value}, height=${height}%`);
+        <div className="relative h-32 bg-gray-50 rounded p-4">
+          <svg width="100%" height="100%" className="overflow-visible">
+            {trackingData.length > 1 && trackingData.map((point, index) => {
+              if (index === 0) return null;
+              
+              const prevPoint = trackingData[index - 1];
+              const x1 = ((index - 1) / (trackingData.length - 1)) * 100;
+              const x2 = (index / (trackingData.length - 1)) * 100;
+              const y1 = maxValue === minValue ? 50 : 100 - ((prevPoint.value - minValue) / (maxValue - minValue)) * 80;
+              const y2 = maxValue === minValue ? 50 : 100 - ((point.value - minValue) / (maxValue - minValue)) * 80;
+              
+              return (
+                <line
+                  key={index}
+                  x1={`${x1}%`}
+                  y1={`${y1}%`}
+                  x2={`${x2}%`}
+                  y2={`${y2}%`}
+                  stroke="#3b82f6"
+                  strokeWidth="2"
+                  className="transition-all duration-300"
+                />
+              );
+            })}
             
-            return (
-              <div key={index} className="flex-1 flex flex-col items-center">
-                <div className="w-full bg-gray-100 rounded-t h-32 relative">
-                  <div
-                    className={`w-full rounded-t transition-all duration-300 absolute bottom-0 ${
-                      isLatest ? 'bg-blue-500' : 'bg-blue-300'
-                    }`}
-                    style={{ height: `${Math.max(height, 5)}%` }}
-                  />
-                </div>
-                <div className="text-xs text-gray-600 mt-1 text-center">
-                  {new Date(point.date).toLocaleDateString('ja-JP', { 
-                    month: 'short', 
-                    day: 'numeric' 
-                  })}
-                </div>
+            {trackingData.map((point, index) => {
+              const x = (index / (trackingData.length - 1)) * 100;
+              const y = maxValue === minValue ? 50 : 100 - ((point.value - minValue) / (maxValue - minValue)) * 80;
+              const isLatest = index === trackingData.length - 1;
+              
+              return (
+                <circle
+                  key={index}
+                  cx={`${x}%`}
+                  cy={`${y}%`}
+                  r="4"
+                  fill={isLatest ? "#1d4ed8" : "#3b82f6"}
+                  className="transition-all duration-300"
+                />
+              );
+            })}
+          </svg>
+          
+          <div className="flex justify-between mt-2">
+            {trackingData.map((point, index) => (
+              <div key={index} className="text-xs text-gray-600 text-center flex-1">
+                {new Date(point.date).toLocaleDateString('ja-JP', { 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </div>
       

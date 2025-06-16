@@ -1,0 +1,73 @@
+name: Scheduled Channel and Tracking Data Collection
+
+on:
+  schedule:
+    # 日本時間朝5時 = UTC 20時（前日）
+    - cron: '0 20 * * *'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  collect-channels:
+    runs-on: ubuntu-latest
+    name: Collect New Channels
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Run channel collection
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+        run: |
+          cd backend
+          echo "🔍 Starting channel collection at $(date)"
+          node collect-channels.js
+          echo "✅ Channel collection completed at $(date)"
+
+  update-tracking-data:
+    runs-on: ubuntu-latest
+    name: Update Tracking Data
+    needs: collect-channels
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Run tracking data update
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+        run: |
+          cd backend
+          echo "📊 Starting tracking data update at $(date)"
+          node track-channels.js
+          echo "✅ Tracking data update completed at $(date)"
