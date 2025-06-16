@@ -44,21 +44,71 @@ const TrackingDashboard = ({ selectedChannelId }) => {
       setLoading(true);
       console.log('Loading tracking data for:', channelId);
       
-      // tracking_dataコレクションの代わりに、チャンネルデータから模擬的なトラッキングデータを作成
+      // まず実際のtracking_dataを取得を試みる
+      try {
+        const querySnapshot = await getDocs(
+          query(
+            collection(db, 'tracking_data'),
+            where('channelId', '==', channelId)
+          )
+        );
+        
+        const data = querySnapshot.docs.map(doc => doc.data());
+        console.log('Found tracking data:', data);
+        
+        if (data.length > 0) {
+          // 実際のトラッキングデータが存在する場合
+          const sortedData = data
+            .filter(d => d.recordedAt)
+            .sort((a, b) => {
+              const dateA = a.recordedAt.toDate ? a.recordedAt.toDate() : new Date(a.recordedAt);
+              const dateB = b.recordedAt.toDate ? b.recordedAt.toDate() : new Date(b.recordedAt);
+              return dateA - dateB;
+            });
+          
+          const subscriberData = sortedData.map(d => ({
+            date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
+            value: d.subscriberCount || 0
+          }));
+          
+          const videoData = sortedData.map(d => ({
+            date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
+            value: d.videoCount || 0
+          }));
+          
+          const viewsData = sortedData.map(d => ({
+            date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
+            value: d.totalViews || 0
+          }));
+          
+          const realTrackingData = {
+            subscriberCount: subscriberData,
+            videoCount: videoData,
+            totalViews: viewsData
+          };
+          
+          console.log('Setting real tracking data:', realTrackingData);
+          setTrackingData(realTrackingData);
+          return;
+        }
+      } catch (error) {
+        console.log('Failed to fetch real tracking data, using mock data:', error);
+      }
+      
+      // トラッキングデータがない場合は模擬データを作成
       const selectedChannel = trackedChannels.find(c => c.channelId === channelId);
-      console.log('Using channel data for tracking:', selectedChannel);
+      console.log('Using channel data for mock tracking:', selectedChannel);
       
       if (selectedChannel) {
         const now = new Date();
         const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
         const twoWeeksAgo = new Date(now - 14 * 24 * 60 * 60 * 1000);
         
-        // 模擬的な成長データを生成（実際の数値から逆算）
+        // 模擬的な成長データを生成
         const currentSubs = selectedChannel.subscriberCount || 0;
         const currentVideos = selectedChannel.videoCount || 0;
         const currentViews = selectedChannel.totalViews || 0;
         
-        // 簡単な成長シミュレーション（実際には過去データを使用）
         const mockData = {
           subscriberCount: [
             { date: twoWeeksAgo, value: Math.max(0, Math.floor(currentSubs * 0.95)) },
@@ -81,7 +131,7 @@ const TrackingDashboard = ({ selectedChannelId }) => {
         setTrackingData(mockData);
       }
     } catch (error) {
-      console.error('トラッキングデータの生成エラー:', error);
+      console.error('トラッキングデータの取得エラー:', error);
     } finally {
       setLoading(false);
     }
