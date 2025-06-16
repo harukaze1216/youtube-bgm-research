@@ -427,13 +427,8 @@ export async function getChannelsByStatus(status = 'all', additionalFilters = {}
     let q = collection(db, 'bgm_channels');
     
     // ステータスフィルター
-    if (status !== 'all') {
-      if (status === 'unset') {
-        // ステータスが未設定のチャンネルを取得
-        q = query(q, where('status', '==', null));
-      } else {
-        q = query(q, where('status', '==', status));
-      }
+    if (status !== 'all' && status !== 'unset') {
+      q = query(q, where('status', '==', status));
     }
     
     // 基本的なソート（作成日時順）
