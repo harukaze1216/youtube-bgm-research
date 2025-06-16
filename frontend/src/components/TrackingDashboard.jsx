@@ -42,6 +42,8 @@ const TrackingDashboard = ({ selectedChannelId }) => {
   const loadTrackingData = async (channelId) => {
     try {
       setLoading(true);
+      console.log('Loading tracking data for:', channelId);
+      
       const querySnapshot = await getDocs(
         query(
           collection(db, 'tracking_data'),
@@ -51,24 +53,23 @@ const TrackingDashboard = ({ selectedChannelId }) => {
       );
       
       const data = querySnapshot.docs.map(doc => doc.data());
+      console.log('Found tracking data:', data);
       
       if (data.length === 0) {
         // トラッキングデータがない場合は、チャンネルの現在データから初期データを作成
         const selectedChannel = trackedChannels.find(c => c.channelId === channelId);
+        console.log('No tracking data, using channel data:', selectedChannel);
+        
         if (selectedChannel) {
           const now = new Date();
-          const mockData = [{
-            date: now,
-            subscriberCount: selectedChannel.subscriberCount || 0,
-            videoCount: selectedChannel.videoCount || 0,
-            totalViews: selectedChannel.totalViews || 0
-          }];
+          const mockData = {
+            subscriberCount: [{ date: now, value: selectedChannel.subscriberCount || 0 }],
+            videoCount: [{ date: now, value: selectedChannel.videoCount || 0 }],
+            totalViews: [{ date: now, value: selectedChannel.totalViews || 0 }]
+          };
           
-          setTrackingData({
-            subscriberCount: mockData.map(d => ({ date: d.date, value: d.subscriberCount })),
-            videoCount: mockData.map(d => ({ date: d.date, value: d.videoCount })),
-            totalViews: mockData.map(d => ({ date: d.date, value: d.totalViews }))
-          });
+          console.log('Setting mock tracking data:', mockData);
+          setTrackingData(mockData);
         }
         return;
       }
@@ -89,11 +90,14 @@ const TrackingDashboard = ({ selectedChannelId }) => {
         value: d.totalViews
       }));
       
-      setTrackingData({
+      const trackingData = {
         subscriberCount: subscriberData,
         videoCount: videoData,
         totalViews: viewsData
-      });
+      };
+      
+      console.log('Setting real tracking data:', trackingData);
+      setTrackingData(trackingData);
     } catch (error) {
       console.error('トラッキングデータの取得エラー:', error);
     } finally {
@@ -137,6 +141,7 @@ const TrackingDashboard = ({ selectedChannelId }) => {
                 <div
                   key={channel.id}
                   onClick={() => {
+                    console.log('Selecting channel:', channel.channelId, channel);
                     setCurrentSelectedChannelId(channel.channelId);
                     loadTrackingData(channel.channelId);
                   }}
@@ -199,7 +204,10 @@ const TrackingDashboard = ({ selectedChannelId }) => {
                 {selectedChannel.channelTitle}
               </h2>
               <p className="text-gray-600">
-                追跡開始: {new Date(selectedChannel.addedAt.toDate()).toLocaleDateString('ja-JP')}
+                ステータス更新: {selectedChannel.statusUpdatedAt ? 
+                  new Date(selectedChannel.statusUpdatedAt.toDate ? selectedChannel.statusUpdatedAt.toDate() : selectedChannel.statusUpdatedAt).toLocaleDateString('ja-JP') :
+                  'Unknown'
+                }
               </p>
             </div>
           </div>
