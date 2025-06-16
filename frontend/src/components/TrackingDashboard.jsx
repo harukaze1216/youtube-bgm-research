@@ -9,8 +9,9 @@ const TrackingDashboard = ({ selectedChannelId }) => {
     videoCount: [],
     totalViews: []
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [trackedChannels, setTrackedChannels] = useState([]);
+  const [channelsLoading, setChannelsLoading] = useState(true);
   const [currentSelectedChannelId, setCurrentSelectedChannelId] = useState(selectedChannelId);
 
   useEffect(() => {
@@ -25,6 +26,7 @@ const TrackingDashboard = ({ selectedChannelId }) => {
 
   const loadTrackedChannels = async () => {
     try {
+      setChannelsLoading(true);
       // 新しいステータス管理システムを使用
       const { getChannelsByStatus } = await import('../services/channelService');
       const trackingChannels = await getChannelsByStatus('tracking');
@@ -32,6 +34,8 @@ const TrackingDashboard = ({ selectedChannelId }) => {
       setTrackedChannels(trackingChannels);
     } catch (error) {
       console.error('追跡チャンネル一覧の取得エラー:', error);
+    } finally {
+      setChannelsLoading(false);
     }
   };
 
@@ -102,6 +106,15 @@ const TrackingDashboard = ({ selectedChannelId }) => {
       <div className="text-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
         <p className="text-gray-600">トラッキングデータを読み込み中...</p>
+      </div>
+    );
+  }
+
+  if (channelsLoading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">トラッキングチャンネルを読み込み中...</p>
       </div>
     );
   }
