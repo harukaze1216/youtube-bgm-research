@@ -36,6 +36,7 @@ const Header = ({ currentView, onViewChange }) => {
   const navItems = [
     { id: 'channels', label: 'チャンネル一覧', icon: '🎵' },
     { id: 'tracking', label: 'トラッキング', icon: '📈' },
+    { id: 'history', label: '履歴', icon: '📋' },
     { id: 'settings', label: '設定', icon: '⚙️' }
   ];
 

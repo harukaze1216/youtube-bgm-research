@@ -9,6 +9,7 @@ import ChannelGrid from './components/ChannelGrid';
 import ChannelModal from './components/ChannelModal';
 import Settings from './components/Settings';
 import TrackingDashboard from './components/TrackingDashboard';
+import ChannelHistory from './components/ChannelHistory';
 
 function App() {
   const [channels, setChannels] = useState([]);
@@ -273,10 +274,20 @@ function App() {
     });
     
     try {
-      const { fetchChannelMostPopularVideo } = await import('./services/channelService');
+      const { fetchChannelMostPopularVideo, fetchChannelInfo } = await import('./services/channelService');
+      
+      // uploadsPlaylistIdが未設定の場合は取得
+      let uploadsPlaylistId = channel.uploadsPlaylistId;
+      if (!uploadsPlaylistId) {
+        console.log('uploadsPlaylistId not found, fetching channel info...');
+        const channelInfo = await fetchChannelInfo(channel.channelId);
+        uploadsPlaylistId = channelInfo.uploadsPlaylistId;
+      }
+      
+      console.log('Using uploadsPlaylistId:', uploadsPlaylistId);
       
       // 最も人気の動画を取得
-      const popularVideo = await fetchChannelMostPopularVideo(channel.uploadsPlaylistId);
+      const popularVideo = await fetchChannelMostPopularVideo(uploadsPlaylistId);
       
       if (popularVideo) {
         setChannelDetails({
@@ -330,6 +341,8 @@ function App() {
         return <Settings />;
       case 'tracking':
         return <TrackingDashboard selectedChannelId={selectedChannelForTracking} />;
+      case 'history':
+        return <ChannelHistory />;
       default:
         return (
           <>

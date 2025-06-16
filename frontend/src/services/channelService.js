@@ -197,6 +197,11 @@ export function isBGMChannel(title, description) {
  */
 export async function fetchChannelMostPopularVideo(uploadsPlaylistId) {
   try {
+    if (!uploadsPlaylistId) {
+      console.error('uploadsPlaylistId is required');
+      return null;
+    }
+    
     const API_KEY = 'AIzaSyDN1sTee52txGVYpQwSWgAD7FUr4NNJinQ';
     const baseUrl = 'https://www.googleapis.com/youtube/v3/playlistItems';
     
@@ -219,10 +224,21 @@ export async function fetchChannelMostPopularVideo(uploadsPlaylistId) {
         params.append('pageToken', nextPageToken);
       }
       
-      const response = await fetch(`${baseUrl}?${params}`);
+      // タイムアウト付きでAPI呼び出し
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
+      
+      const response = await fetch(`${baseUrl}?${params}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
       const data = await response.json();
       
       if (!response.ok) {
+        if (data.error?.message?.includes('quota')) {
+          throw new Error('YouTube API の使用量制限に達しました。しばらく待ってから再試行してください。');
+        }
         throw new Error(data.error?.message || 'API呼び出しエラー');
       }
       
