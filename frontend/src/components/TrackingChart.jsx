@@ -1,4 +1,6 @@
 const TrackingChart = ({ trackingData, title }) => {
+  console.log(`TrackingChart for ${title}:`, trackingData);
+  
   if (!trackingData || trackingData.length === 0) {
     return (
       <div className="bg-white rounded-lg p-6 border border-gray-200">
@@ -12,6 +14,7 @@ const TrackingChart = ({ trackingData, title }) => {
 
   const maxValue = Math.max(...trackingData.map(d => d.value));
   const minValue = Math.min(...trackingData.map(d => d.value));
+  console.log(`Chart range for ${title}: ${minValue} - ${maxValue}`);
   
   return (
     <div className="bg-white rounded-lg p-6 border border-gray-200">
@@ -21,14 +24,15 @@ const TrackingChart = ({ trackingData, title }) => {
       <div className="mb-4">
         <div className="flex items-end h-32 gap-2">
           {trackingData.map((point, index) => {
-            const height = ((point.value - minValue) / (maxValue - minValue)) * 100;
+            const height = maxValue === minValue ? 50 : ((point.value - minValue) / (maxValue - minValue)) * 100;
             const isLatest = index === trackingData.length - 1;
+            console.log(`Point ${index}: value=${point.value}, height=${height}%`);
             
             return (
               <div key={index} className="flex-1 flex flex-col items-center">
-                <div className="w-full bg-gray-100 rounded-t">
+                <div className="w-full bg-gray-100 rounded-t h-32 relative">
                   <div
-                    className={`w-full rounded-t transition-all duration-300 ${
+                    className={`w-full rounded-t transition-all duration-300 absolute bottom-0 ${
                       isLatest ? 'bg-blue-500' : 'bg-blue-300'
                     }`}
                     style={{ height: `${Math.max(height, 5)}%` }}
@@ -43,6 +47,23 @@ const TrackingChart = ({ trackingData, title }) => {
               </div>
             );
           })}
+        </div>
+      </div>
+      
+      {/* Historical data table */}
+      <div className="mb-4 max-h-32 overflow-y-auto">
+        <h4 className="text-sm font-medium text-gray-700 mb-2">履歴データ</h4>
+        <div className="space-y-1">
+          {trackingData.map((point, index) => (
+            <div key={index} className="flex justify-between text-xs">
+              <span className="text-gray-600">
+                {new Date(point.date).toLocaleDateString('ja-JP')}
+              </span>
+              <span className="font-medium text-gray-900">
+                {point.value.toLocaleString()}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
       
