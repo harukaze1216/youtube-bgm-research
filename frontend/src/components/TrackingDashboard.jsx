@@ -172,26 +172,34 @@ const TrackingDashboard = ({ selectedChannelId }) => {
     <div className="space-y-6">
       {selectedChannel && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center gap-4 mb-4">
-            <img
-              src={selectedChannel.thumbnailUrl || '/default-avatar.png'}
-              alt={selectedChannel.channelTitle}
-              className="w-16 h-16 rounded-full object-cover"
-              onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/64x64/e5e7eb/9ca3af?text=🎵';
-              }}
-            />
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                {selectedChannel.channelTitle}
-              </h2>
-              <p className="text-gray-600">
-                ステータス更新: {selectedChannel.statusUpdatedAt ? 
-                  new Date(selectedChannel.statusUpdatedAt.toDate ? selectedChannel.statusUpdatedAt.toDate() : selectedChannel.statusUpdatedAt).toLocaleDateString('ja-JP') :
-                  'Unknown'
-                }
-              </p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <img
+                src={selectedChannel.thumbnailUrl || '/default-avatar.png'}
+                alt={selectedChannel.channelTitle}
+                className="w-16 h-16 rounded-full object-cover"
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/64x64/e5e7eb/9ca3af?text=🎵';
+                }}
+              />
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {selectedChannel.channelTitle}
+                </h2>
+                <p className="text-gray-600">
+                  ステータス更新: {selectedChannel.statusUpdatedAt ? 
+                    new Date(selectedChannel.statusUpdatedAt.toDate ? selectedChannel.statusUpdatedAt.toDate() : selectedChannel.statusUpdatedAt).toLocaleDateString('ja-JP') :
+                    'Unknown'
+                  }
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => setCurrentSelectedChannelId(null)}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+            >
+              ← チャンネル一覧に戻る
+            </button>
           </div>
         </div>
       )}
