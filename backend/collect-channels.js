@@ -23,7 +23,7 @@ dotenv.config();
 const COLLECTION_CONFIG = {
   keywordCount: 12,         // 使用するキーワード数（増加）
   videosPerKeyword: 50,     // キーワードあたりの動画検索数（増加）
-  monthsThreshold: 6,       // 何ヶ月以内のチャンネルを対象とするか（延長）
+  monthsThreshold: 3,       // 何ヶ月以内のチャンネルを対象とするか
   minSubscribers: 500,      // 最小登録者数（緩和）
   maxSubscribers: 500000,   // 最大登録者数
   minVideos: 3,             // 最小動画数（緩和）
