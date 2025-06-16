@@ -11,16 +11,17 @@ const TrackingDashboard = ({ selectedChannelId }) => {
   });
   const [loading, setLoading] = useState(true);
   const [trackedChannels, setTrackedChannels] = useState([]);
+  const [currentSelectedChannelId, setCurrentSelectedChannelId] = useState(selectedChannelId);
 
   useEffect(() => {
     loadTrackedChannels();
   }, []);
 
   useEffect(() => {
-    if (selectedChannelId) {
-      loadTrackingData(selectedChannelId);
+    if (currentSelectedChannelId) {
+      loadTrackingData(currentSelectedChannelId);
     }
-  }, [selectedChannelId]);
+  }, [currentSelectedChannelId]);
 
   const loadTrackedChannels = async () => {
     try {
@@ -46,6 +47,27 @@ const TrackingDashboard = ({ selectedChannelId }) => {
       );
       
       const data = querySnapshot.docs.map(doc => doc.data());
+      
+      if (data.length === 0) {
+        // トラッキングデータがない場合は、チャンネルの現在データから初期データを作成
+        const selectedChannel = trackedChannels.find(c => c.channelId === channelId);
+        if (selectedChannel) {
+          const now = new Date();
+          const mockData = [{
+            date: now,
+            subscriberCount: selectedChannel.subscriberCount || 0,
+            videoCount: selectedChannel.videoCount || 0,
+            totalViews: selectedChannel.totalViews || 0
+          }];
+          
+          setTrackingData({
+            subscriberCount: mockData.map(d => ({ date: d.date, value: d.subscriberCount })),
+            videoCount: mockData.map(d => ({ date: d.date, value: d.videoCount })),
+            totalViews: mockData.map(d => ({ date: d.date, value: d.totalViews }))
+          });
+        }
+        return;
+      }
       
       // データを種類別に分類
       const subscriberData = data.map(d => ({
@@ -75,7 +97,7 @@ const TrackingDashboard = ({ selectedChannelId }) => {
     }
   };
 
-  if (loading && selectedChannelId) {
+  if (loading && currentSelectedChannelId) {
     return (
       <div className="text-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -84,7 +106,7 @@ const TrackingDashboard = ({ selectedChannelId }) => {
     );
   }
 
-  if (!selectedChannelId) {
+  if (!currentSelectedChannelId) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-8">
         <div className="text-center">
@@ -101,7 +123,10 @@ const TrackingDashboard = ({ selectedChannelId }) => {
               {trackedChannels.map(channel => (
                 <div
                   key={channel.id}
-                  onClick={() => loadTrackingData(channel.channelId)}
+                  onClick={() => {
+                    setCurrentSelectedChannelId(channel.channelId);
+                    loadTrackingData(channel.channelId);
+                  }}
                   className="cursor-pointer p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -141,7 +166,7 @@ const TrackingDashboard = ({ selectedChannelId }) => {
     );
   }
 
-  const selectedChannel = trackedChannels.find(c => c.channelId === selectedChannelId);
+  const selectedChannel = trackedChannels.find(c => c.channelId === currentSelectedChannelId);
 
   return (
     <div className="space-y-6">
