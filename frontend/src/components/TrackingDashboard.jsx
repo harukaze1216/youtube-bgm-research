@@ -24,20 +24,11 @@ const TrackingDashboard = ({ selectedChannelId }) => {
 
   const loadTrackedChannels = async () => {
     try {
-      const querySnapshot = await getDocs(
-        query(
-          collection(db, 'tracked_channels'),
-          where('isActive', '==', true),
-          orderBy('addedAt', 'desc')
-        )
-      );
+      // 新しいステータス管理システムを使用
+      const { getChannelsByStatus } = await import('../services/channelService');
+      const trackingChannels = await getChannelsByStatus('tracking');
       
-      const channels = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      setTrackedChannels(channels);
+      setTrackedChannels(trackingChannels);
     } catch (error) {
       console.error('追跡チャンネル一覧の取得エラー:', error);
     }
@@ -127,7 +118,10 @@ const TrackingDashboard = ({ selectedChannelId }) => {
                         {channel.channelTitle}
                       </h4>
                       <p className="text-sm text-gray-600">
-                        追跡開始: {new Date(channel.addedAt.toDate()).toLocaleDateString('ja-JP')}
+                        ステータス更新: {channel.statusUpdatedAt ? 
+                          new Date(channel.statusUpdatedAt.toDate ? channel.statusUpdatedAt.toDate() : channel.statusUpdatedAt).toLocaleDateString('ja-JP') :
+                          'Unknown'
+                        }
                       </p>
                     </div>
                   </div>
@@ -138,8 +132,8 @@ const TrackingDashboard = ({ selectedChannelId }) => {
           
           {trackedChannels.length === 0 && (
             <p className="text-gray-500">
-              まだ追跡中のチャンネルがありません。<br />
-              チャンネル一覧から「追跡に追加」ボタンを押してチャンネルを追跡しましょう。
+              まだトラッキング中のチャンネルがありません。<br />
+              チャンネル一覧からチャンネルを「追跡」ステータスに設定してください。
             </p>
           )}
         </div>

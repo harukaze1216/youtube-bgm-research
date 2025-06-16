@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { markChannelAsViewed } from '../services/channelService';
 import ChannelStatusActions from './ChannelStatusActions';
 
-const ChannelCard = ({ channel, onChannelClick, onAddToTracking }) => {
+const ChannelCard = ({ channel, onChannelClick, onAddToTracking, onStatusChange }) => {
   const [isViewed, setIsViewed] = useState(channel.isViewed || false);
   const formatNumber = (num) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -116,11 +116,11 @@ const ChannelCard = ({ channel, onChannelClick, onAddToTracking }) => {
             <div className="flex gap-2">
               <ChannelStatusActions 
                 channel={channel}
-                onStatusChange={async (channelId, status, reason) => {
+                onStatusChange={onStatusChange || (async (channelId, status, reason) => {
                   const { updateChannelStatus } = await import('../services/channelService');
                   await updateChannelStatus(channelId, status, reason);
-                  window.location.reload(); // 仮の対応：後でプロップス経由で親コンポーネントのリロードに変更
-                }}
+                  window.location.reload();
+                })}
               />
               
               <button

@@ -22,7 +22,7 @@ function App() {
   const [selectedChannelForTracking, setSelectedChannelForTracking] = useState(null);
   const [filters, setFilters] = useState({
     sortBy: 'growth_rate',
-    filterBy: 'all',
+    filterBy: 'unset', // デフォルトを未仕分けに変更
     search: ''
   });
 
@@ -65,8 +65,12 @@ function App() {
         case 'rejected':
           channelData = await getChannelsByStatus('rejected');
           break;
-        default:
+        case 'all':
           channelData = await getChannelsByStatus('all');
+          break;
+        default:
+          // デフォルトは未仕分けのチャンネルのみ表示
+          channelData = await getChannelsByStatus('unset');
           break;
       }
       
@@ -359,6 +363,11 @@ function App() {
               channels={filteredChannels}
               onChannelClick={handleChannelClick}
               onAddToTracking={handleAddToTracking}
+              onStatusChange={async (channelId, status, reason) => {
+                const { updateChannelStatus } = await import('./services/channelService');
+                await updateChannelStatus(channelId, status, reason);
+                await loadChannels(); // データを再読み込み
+              }}
             />
           </>
         );

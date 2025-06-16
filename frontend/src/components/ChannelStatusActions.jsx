@@ -66,21 +66,21 @@ const ChannelStatusActions = ({ channel, onStatusChange }) => {
       <div className="flex gap-1">
         <button
           onClick={handleTrack}
-          className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 border border-green-300 rounded hover:bg-green-200 transition-colors"
+          className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 border border-green-300 rounded hover:bg-green-200 transition-colors min-w-[48px]"
           title="トラッキング対象に追加"
         >
           追跡
         </button>
         <button
           onClick={handleUntrack}
-          className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300 rounded hover:bg-yellow-200 transition-colors"
+          className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300 rounded hover:bg-yellow-200 transition-colors min-w-[48px]"
           title="トラッキング対象外に設定"
         >
           対象外
         </button>
         <button
           onClick={handleReject}
-          className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 border border-red-300 rounded hover:bg-red-200 transition-colors"
+          className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 border border-red-300 rounded hover:bg-red-200 transition-colors min-w-[48px]"
           title="完全に除外"
         >
           除外
