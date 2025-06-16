@@ -426,13 +426,10 @@ export async function getChannelsByStatus(status = 'all', additionalFilters = {}
   try {
     let q = collection(db, 'bgm_channels');
     
-    // ステータスフィルター
+    // ステータスフィルター（unsetと'all'の場合は全件取得してからフィルタリング）
     if (status !== 'all' && status !== 'unset') {
       q = query(q, where('status', '==', status));
     }
-    
-    // 基本的なソート（作成日時順）
-    // q = query(q, orderBy('createdAt', 'desc'));
     
     const querySnapshot = await getDocs(q);
     const channels = [];
@@ -445,13 +442,20 @@ export async function getChannelsByStatus(status = 'all', additionalFilters = {}
       });
     });
     
-    // ステータスが未設定のものを含める場合のフィルタリング
+    // ステータス別のフィルタリング
+    let filteredChannels = channels;
     if (status === 'unset') {
-      return channels.filter(channel => !channel.status || channel.status === null || channel.status === undefined);
+      // statusフィールドが存在しない、null、undefined、または空文字列の場合
+      filteredChannels = channels.filter(channel => 
+        !channel.status || 
+        channel.status === null || 
+        channel.status === undefined || 
+        channel.status === ''
+      );
     }
     
-    console.log(`📊 Found ${channels.length} channels with status: ${status}`);
-    return channels;
+    console.log(`📊 Found ${filteredChannels.length} channels with status: ${status}`);
+    return filteredChannels;
   } catch (error) {
     console.error('Error getting channels by status:', error);
     return [];
