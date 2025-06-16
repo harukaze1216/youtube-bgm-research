@@ -12,7 +12,13 @@ import {
   getChannelLatestVideo 
 } from './youtube-api.js';
 import { filterChannel } from './channel-filter.js';
-import { saveChannels } from './firestore-service.js';
+import { 
+  saveChannels, 
+  updateChannelStatus, 
+  bulkUpdateChannelStatus, 
+  getChannelsByStatus, 
+  getStatusStatistics 
+} from './firestore-service.js';
 
 dotenv.config();
 
@@ -35,8 +41,17 @@ function showUsage() {
   first <channelId>             - 最初の動画情報を取得
   update <channelId>            - 既存チャンネルの統計を更新
   validate <channelId>          - チャンネルがBGMフィルターを通過するかチェック
-  list                          - データベース内のチャンネル一覧を表示
+  list [status]                 - データベース内のチャンネル一覧を表示
   remove <channelId>            - データベースからチャンネルを削除
+  
+  【ステータス管理】
+  track <channelId>             - チャンネルをトラッキング対象に設定
+  untrack <channelId>           - チャンネルをトラッキング対象外に設定
+  reject <channelId> [reason]   - チャンネルを除外対象に設定
+  approve <channelId>           - チャンネルを承認（トラッキング対象外に設定）
+  stats                         - ステータス別統計を表示
+  bulk-track <file>             - ファイルからチャンネルIDを読み込んで一括トラッキング
+  bulk-reject <file> [reason]   - ファイルからチャンネルIDを読み込んで一括除外
 
 例:
   node manual-fetch.js channel UCxxxxxxxxxxxxxxxxxxxxx
@@ -46,6 +61,11 @@ function showUsage() {
   node manual-fetch.js update UCxxxxxxxxxxxxxxxxxxxxx
   node manual-fetch.js remove UCxxxxxxxxxxxxxxxxxxxxx
   node manual-fetch.js list
+  node manual-fetch.js list tracking
+  node manual-fetch.js track UCxxxxxxxxxxxxxxxxxxxxx
+  node manual-fetch.js reject UCxxxxxxxxxxxxxxxxxxxxx "音楽以外のコンテンツ"
+  node manual-fetch.js stats
+  node manual-fetch.js bulk-track channel_ids.txt
 
 オプション:
   --save                        - 結果をFirestoreに保存（detailsコマンドで使用）
@@ -279,6 +299,190 @@ async function listChannels() {
 }
 
 /**
+ * ステータス別チャンネル一覧表示
+ */
+async function listChannelsByStatus(status = 'all') {
+  try {
+    console.log(`📋 ステータス別チャンネル一覧 (${status}):`);
+    
+    const channels = await getChannelsByStatus(status, { 
+      orderBy: 'subscriberCount', 
+      orderDirection: 'desc' 
+    });
+    
+    if (channels.length === 0) {
+      console.log(`❌ ステータス "${status}" のチャンネルが見つかりません`);
+      return;
+    }
+
+    console.log(`\n📊 総数: ${channels.length} チャンネル\n`);
+
+    channels.forEach((channel, index) => {
+      const statusEmoji = {
+        'tracking': '📊',
+        'non-tracking': '📋',
+        'rejected': '❌'
+      }[channel.status] || '❓';
+      
+      console.log(`${index + 1}. ${channel.channelTitle}`);
+      console.log(`   ${statusEmoji} ステータス: ${channel.status || '未設定'}`);
+      console.log(`   👥 ${(channel.subscriberCount || 0).toLocaleString()} 登録者`);
+      console.log(`   📈 成長率: ${channel.growthRate || 0}%`);
+      
+      if (channel.status === 'rejected' && channel.rejectionReason) {
+        console.log(`   📝 除外理由: ${channel.rejectionReason}`);
+      }
+      
+      if (channel.statusUpdatedAt) {
+        console.log(`   🔄 更新日: ${new Date(channel.statusUpdatedAt.toDate()).toLocaleDateString('ja-JP')}`);
+      }
+      
+      console.log(`   🆔 ${channel.channelId}`);
+      console.log('');
+    });
+    
+  } catch (error) {
+    console.error('❌ ステータス別チャンネル一覧取得エラー:', error.message);
+  }
+}
+
+// ======== ステータス管理機能 ========
+
+/**
+ * チャンネルをトラッキング対象に設定
+ */
+async function trackChannel(channelId) {
+  try {
+    console.log(`📊 チャンネルをトラッキング対象に設定中: ${channelId}`);
+    
+    const result = await updateChannelStatus(channelId, 'tracking');
+    if (result) {
+      console.log('✅ チャンネルをトラッキング対象に設定しました');
+    } else {
+      console.log('❌ ステータス更新に失敗しました');
+    }
+  } catch (error) {
+    console.error('❌ トラッキング設定エラー:', error.message);
+  }
+}
+
+/**
+ * チャンネルをトラッキング対象外に設定
+ */
+async function untrackChannel(channelId) {
+  try {
+    console.log(`📋 チャンネルをトラッキング対象外に設定中: ${channelId}`);
+    
+    const result = await updateChannelStatus(channelId, 'non-tracking');
+    if (result) {
+      console.log('✅ チャンネルをトラッキング対象外に設定しました');
+    } else {
+      console.log('❌ ステータス更新に失敗しました');
+    }
+  } catch (error) {
+    console.error('❌ トラッキング対象外設定エラー:', error.message);
+  }
+}
+
+/**
+ * チャンネルを除外対象に設定
+ */
+async function rejectChannel(channelId, reason = null) {
+  try {
+    console.log(`❌ チャンネルを除外対象に設定中: ${channelId}`);
+    if (reason) {
+      console.log(`理由: ${reason}`);
+    }
+    
+    const result = await updateChannelStatus(channelId, 'rejected', reason);
+    if (result) {
+      console.log('✅ チャンネルを除外対象に設定しました');
+    } else {
+      console.log('❌ ステータス更新に失敗しました');
+    }
+  } catch (error) {
+    console.error('❌ 除外設定エラー:', error.message);
+  }
+}
+
+/**
+ * チャンネルを承認（トラッキング対象外に設定）
+ */
+async function approveChannel(channelId) {
+  try {
+    console.log(`✅ チャンネルを承認中: ${channelId}`);
+    
+    const result = await updateChannelStatus(channelId, 'non-tracking');
+    if (result) {
+      console.log('✅ チャンネルを承認しました（トラッキング対象外）');
+    } else {
+      console.log('❌ ステータス更新に失敗しました');
+    }
+  } catch (error) {
+    console.error('❌ 承認エラー:', error.message);
+  }
+}
+
+/**
+ * ステータス統計を表示
+ */
+async function showStatusStatistics() {
+  try {
+    console.log('📊 ステータス統計を取得中...');
+    
+    const stats = await getStatusStatistics();
+    
+    console.log('\n======== チャンネルステータス統計 ========');
+    console.log(`📊 総数: ${stats.total}`);
+    console.log(`📊 トラッキング中: ${stats.tracking || 0}`);
+    console.log(`📋 トラッキング対象外: ${stats['non-tracking'] || 0}`);
+    console.log(`❌ 除外済み: ${stats.rejected || 0}`);
+    console.log(`❓ 未設定: ${stats.undefined || 0}`);
+    console.log('=====================================\n');
+    
+  } catch (error) {
+    console.error('❌ 統計取得エラー:', error.message);
+  }
+}
+
+/**
+ * ファイルからチャンネルIDを読み込んで一括処理
+ */
+async function processBulkChannels(filePath, status, reason = null) {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    
+    if (!fs.existsSync(filePath)) {
+      console.log(`❌ ファイルが見つかりません: ${filePath}`);
+      return;
+    }
+    
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    const channelIds = fileContent
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && line.startsWith('UC') && line.length === 24);
+    
+    if (channelIds.length === 0) {
+      console.log('❌ 有効なチャンネルIDが見つかりません');
+      return;
+    }
+    
+    console.log(`📊 ${channelIds.length}件のチャンネルを${status}に設定中...`);
+    
+    const result = await bulkUpdateChannelStatus(channelIds, status, reason);
+    
+    console.log(`\n✅ 一括処理完了:`);
+    console.log(`  成功: ${result.success}件`);
+    console.log(`  失敗: ${result.failed}件`);
+    
+  } catch (error) {
+    console.error('❌ 一括処理エラー:', error.message);
+  }
+}
+
+/**
  * チャンネルをデータベースから削除
  */
 async function removeChannel(channelId) {
@@ -407,7 +611,8 @@ async function main() {
       break;
 
     case 'list':
-      await listChannels();
+      const status = channelId || 'all'; // channelIdをstatusとして使用
+      await listChannelsByStatus(status);
       break;
 
     case 'remove':
@@ -416,6 +621,61 @@ async function main() {
         return;
       }
       await removeChannel(channelId);
+      break;
+
+    // ステータス管理コマンド
+    case 'track':
+      if (!channelId) {
+        console.log('❌ チャンネルIDを指定してください');
+        return;
+      }
+      await trackChannel(channelId);
+      break;
+
+    case 'untrack':
+      if (!channelId) {
+        console.log('❌ チャンネルIDを指定してください');
+        return;
+      }
+      await untrackChannel(channelId);
+      break;
+
+    case 'reject':
+      if (!channelId) {
+        console.log('❌ チャンネルIDを指定してください');
+        return;
+      }
+      const reason = args[2] || null;
+      await rejectChannel(channelId, reason);
+      break;
+
+    case 'approve':
+      if (!channelId) {
+        console.log('❌ チャンネルIDを指定してください');
+        return;
+      }
+      await approveChannel(channelId);
+      break;
+
+    case 'stats':
+      await showStatusStatistics();
+      break;
+
+    case 'bulk-track':
+      if (!channelId) {
+        console.log('❌ ファイルパスを指定してください');
+        return;
+      }
+      await processBulkChannels(channelId, 'tracking');
+      break;
+
+    case 'bulk-reject':
+      if (!channelId) {
+        console.log('❌ ファイルパスを指定してください');
+        return;
+      }
+      const bulkReason = args[2] || null;
+      await processBulkChannels(channelId, 'rejected', bulkReason);
       break;
 
     default:

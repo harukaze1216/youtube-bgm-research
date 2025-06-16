@@ -39,6 +39,11 @@ export async function saveChannel(channelData) {
     // データの前処理
     const processedData = processChannelData(channelData);
     
+    // 新規チャンネルのデフォルトステータスを設定
+    processedData.status = 'non-tracking';
+    processedData.statusUpdatedAt = new Date();
+    processedData.statusUpdatedBy = 'system';
+    
     await docRef.set(processedData);
     console.log(`✅ Saved channel: ${channelData.channelTitle} (${channelData.subscriberCount} subscribers)`);
     return true;
@@ -194,6 +199,145 @@ export async function getExistingChannelIds() {
   } catch (error) {
     console.error('既存チャンネルID取得エラー:', error);
     return new Set();
+  }
+}
+
+// ======== チャンネルステータス管理機能 ========
+
+/**
+ * チャンネルのステータスを更新
+ * @param {string} channelId - チャンネルID
+ * @param {string} status - 新しいステータス ('tracking', 'non-tracking', 'rejected')
+ * @param {string} reason - ステータス変更理由（オプション）
+ * @returns {Promise<boolean>} 更新成功時true
+ */
+export async function updateChannelStatus(channelId, status, reason = null) {
+  try {
+    const docRef = db.collection(COLLECTIONS.BGM_CHANNELS).doc(channelId);
+    
+    const updateData = {
+      status: status,
+      statusUpdatedAt: new Date(),
+      statusUpdatedBy: 'system' // 必要に応じて実際のユーザーIDに変更
+    };
+    
+    if (reason) {
+      updateData.rejectionReason = reason;
+    }
+    
+    await docRef.update(updateData);
+    console.log(`✅ Updated channel status: ${channelId} -> ${status}`);
+    return true;
+  } catch (error) {
+    console.error(`Error updating channel status for ${channelId}:`, error);
+    return false;
+  }
+}
+
+/**
+ * 複数チャンネルのステータスを一括更新
+ * @param {Array} channelIds - チャンネルIDの配列
+ * @param {string} status - 新しいステータス
+ * @param {string} reason - ステータス変更理由（オプション）
+ * @returns {Promise<Object>} 更新結果 {success: number, failed: number}
+ */
+export async function bulkUpdateChannelStatus(channelIds, status, reason = null) {
+  let success = 0;
+  let failed = 0;
+  
+  for (const channelId of channelIds) {
+    const result = await updateChannelStatus(channelId, status, reason);
+    if (result) {
+      success++;
+    } else {
+      failed++;
+    }
+  }
+  
+  console.log(`📊 Bulk status update completed: ${success} success, ${failed} failed`);
+  return { success, failed };
+}
+
+/**
+ * ステータス別チャンネル検索
+ * @param {string} status - 検索するステータス ('tracking', 'non-tracking', 'rejected', 'all')
+ * @param {Object} additionalFilters - 追加フィルター
+ * @returns {Promise<Array>} チャンネルリスト
+ */
+export async function getChannelsByStatus(status = 'all', additionalFilters = {}) {
+  try {
+    let query = db.collection(COLLECTIONS.BGM_CHANNELS);
+    
+    // ステータスフィルター
+    if (status !== 'all') {
+      query = query.where('status', '==', status);
+    }
+    
+    // 追加フィルター適用
+    if (additionalFilters.minSubscribers) {
+      query = query.where('subscriberCount', '>=', additionalFilters.minSubscribers);
+    }
+    
+    if (additionalFilters.orderBy) {
+      const direction = additionalFilters.orderDirection || 'desc';
+      query = query.orderBy(additionalFilters.orderBy, direction);
+    }
+    
+    if (additionalFilters.limit) {
+      query = query.limit(additionalFilters.limit);
+    }
+    
+    const snapshot = await query.get();
+    const channels = [];
+    
+    snapshot.forEach(doc => {
+      channels.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    console.log(`📊 Found ${channels.length} channels with status: ${status}`);
+    return channels;
+  } catch (error) {
+    console.error('Error getting channels by status:', error);
+    return [];
+  }
+}
+
+/**
+ * ステータス統計を取得
+ * @returns {Promise<Object>} ステータス別カウント
+ */
+export async function getStatusStatistics() {
+  try {
+    const snapshot = await db.collection(COLLECTIONS.BGM_CHANNELS).get();
+    
+    const stats = {
+      total: 0,
+      tracking: 0,
+      'non-tracking': 0,
+      rejected: 0,
+      undefined: 0 // ステータス未設定
+    };
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      stats.total++;
+      
+      const status = data.status || 'undefined';
+      if (stats[status] !== undefined) {
+        stats[status]++;
+      } else {
+        stats.undefined++;
+      }
+    });
+    
+    console.log('📊 Status statistics:', stats);
+    return stats;
+  } catch (error) {
+    console.error('Error getting status statistics:', error);
+    return {};
   }
 }
 

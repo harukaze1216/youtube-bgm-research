@@ -2,43 +2,29 @@ import { db, COLLECTIONS } from './firebase-config.js';
 import { getChannelDetails } from './youtube-api.js';
 
 /**
- * チャンネルを追跡リストに追加
+ * チャンネルを追跡リストに追加（新しいステータス管理システム対応）
  * @param {string} channelId - チャンネルID
  * @returns {Promise<boolean>} 成功時true
  */
 export async function addChannelToTracking(channelId) {
   try {
-    const docRef = db.collection(COLLECTIONS.TRACKED_CHANNELS).doc(channelId);
+    // 新しいステータス管理システムを使用
+    const { updateChannelStatus } = await import('./firestore-service.js');
     
-    // 既に追跡中かチェック
-    const exists = await docRef.get();
-    if (exists.exists) {
-      console.log(`Channel ${channelId} is already being tracked`);
-      return false;
+    // チャンネルを 'tracking' ステータスに設定
+    const success = await updateChannelStatus(channelId, 'tracking');
+    
+    if (success) {
+      // 初回のトラッキングデータを記録
+      const channelData = await getChannelDetails(channelId);
+      if (channelData) {
+        await recordTrackingData(channelId, channelData);
+        console.log(`✅ Added channel to tracking: ${channelData.channelTitle}`);
+      }
+      return true;
     }
-
-    // チャンネル詳細を取得
-    const channelData = await getChannelDetails(channelId);
-    if (!channelData) {
-      console.error(`Failed to get channel details for ${channelId}`);
-      return false;
-    }
-
-    // 追跡リストに追加
-    await docRef.set({
-      channelId: channelData.channelId,
-      channelTitle: channelData.channelTitle,
-      channelUrl: channelData.channelUrl,
-      thumbnailUrl: channelData.thumbnailUrl,
-      addedAt: new Date(),
-      isActive: true
-    });
-
-    // 初回のトラッキングデータを記録
-    await recordTrackingData(channelId, channelData);
-
-    console.log(`✅ Added channel to tracking: ${channelData.channelTitle}`);
-    return true;
+    
+    return false;
   } catch (error) {
     console.error(`Error adding channel to tracking:`, error);
     return false;
@@ -82,20 +68,17 @@ export async function recordTrackingData(channelId, channelData = null) {
 }
 
 /**
- * 追跡中のチャンネル一覧を取得
+ * 追跡中のチャンネル一覧を取得（新しいステータス管理システム対応）
  * @returns {Promise<Array>} 追跡中チャンネルの配列
  */
 export async function getTrackedChannels() {
   try {
-    const snapshot = await db.collection(COLLECTIONS.TRACKED_CHANNELS)
-      .where('isActive', '==', true)
-      .orderBy('addedAt', 'desc')
-      .get();
-
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    // 新しいステータス管理システムを使用
+    const { getChannelsByStatus } = await import('./firestore-service.js');
+    const trackingChannels = await getChannelsByStatus('tracking');
+    
+    console.log(`📊 Found ${trackingChannels.length} channels with tracking status`);
+    return trackingChannels;
   } catch (error) {
     console.error('Error getting tracked channels:', error);
     return [];
@@ -113,16 +96,27 @@ export async function getChannelTrackingHistory(channelId, days = 30) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
+    // インデックスエラーを避けるためorderByを削除し、クライアントサイドでソート
     const snapshot = await db.collection(COLLECTIONS.TRACKING_DATA)
       .where('channelId', '==', channelId)
-      .where('recordedAt', '>=', startDate)
-      .orderBy('recordedAt', 'asc')
       .get();
 
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const data = snapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      .filter(item => {
+        const recordedAt = item.recordedAt.toDate ? item.recordedAt.toDate() : new Date(item.recordedAt);
+        return recordedAt >= startDate;
+      })
+      .sort((a, b) => {
+        const dateA = a.recordedAt.toDate ? a.recordedAt.toDate() : new Date(a.recordedAt);
+        const dateB = b.recordedAt.toDate ? b.recordedAt.toDate() : new Date(b.recordedAt);
+        return dateA - dateB;
+      });
+
+    return data;
   } catch (error) {
     console.error('Error getting channel tracking history:', error);
     return [];
