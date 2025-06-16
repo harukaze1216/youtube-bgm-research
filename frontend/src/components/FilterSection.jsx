@@ -37,6 +37,10 @@ const FilterSection = ({ filters, onFiltersChange }) => {
             className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="all">全て</option>
+            <option value="unset">未仕分け</option>
+            <option value="tracking">トラッキング中</option>
+            <option value="non-tracking">対象外</option>
+            <option value="rejected">除外済み</option>
             <option value="growing">成長中</option>
             <option value="large">大規模</option>
             <option value="small">小規模</option>

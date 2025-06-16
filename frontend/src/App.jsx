@@ -36,14 +36,39 @@ function App() {
     applyFilters();
   }, [channels, filters, trackedChannels]);
 
+  // Reload channels when filter changes
+  useEffect(() => {
+    if (filters.filterBy !== 'all' && filters.filterBy !== 'growing' && filters.filterBy !== 'large' && filters.filterBy !== 'small') {
+      loadChannels();
+    }
+  }, [filters.filterBy]);
+
   const loadChannels = async () => {
     try {
       setLoading(true);
-      const querySnapshot = await getDocs(collection(db, 'bgm_channels'));
-      const channelData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const { getChannelsByStatus } = await import('./services/channelService');
+      
+      // 現在のフィルターに応じてチャンネルを取得
+      let channelData = [];
+      
+      switch (filters.filterBy) {
+        case 'unset':
+          channelData = await getChannelsByStatus('unset');
+          break;
+        case 'tracking':
+          channelData = await getChannelsByStatus('tracking');
+          break;
+        case 'non-tracking':
+          channelData = await getChannelsByStatus('non-tracking');
+          break;
+        case 'rejected':
+          channelData = await getChannelsByStatus('rejected');
+          break;
+        default:
+          channelData = await getChannelsByStatus('all');
+          break;
+      }
+      
       setChannels(channelData);
     } catch (error) {
       console.error('チャンネルデータの読み込みエラー:', error);
@@ -79,7 +104,7 @@ function App() {
       );
     }
 
-    // Category filter
+    // Category filter (only for basic filters, not status filters)
     switch (filters.filterBy) {
       case 'growing':
         filtered = filtered.filter(channel => (channel.growthRate || 0) > 20);
@@ -90,6 +115,7 @@ function App() {
       case 'small':
         filtered = filtered.filter(channel => channel.subscriberCount < 10000);
         break;
+      // Status filters are handled in loadChannels()
     }
 
     // Sort

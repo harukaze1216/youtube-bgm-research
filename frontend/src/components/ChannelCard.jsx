@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { markChannelAsViewed } from '../services/channelService';
+import ChannelStatusActions from './ChannelStatusActions';
 
 const ChannelCard = ({ channel, onChannelClick, onAddToTracking }) => {
   const [isViewed, setIsViewed] = useState(channel.isViewed || false);
@@ -113,20 +114,14 @@ const ChannelCard = ({ channel, onChannelClick, onAddToTracking }) => {
             </span>
             
             <div className="flex gap-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAddToTracking(channel);
+              <ChannelStatusActions 
+                channel={channel}
+                onStatusChange={async (channelId, status, reason) => {
+                  const { updateChannelStatus } = await import('../services/channelService');
+                  await updateChannelStatus(channelId, status, reason);
+                  window.location.reload(); // 仮の対応：後でプロップス経由で親コンポーネントのリロードに変更
                 }}
-                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-                  channel.isTracked 
-                    ? 'bg-green-100 text-green-800 border border-green-300'
-                    : 'bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200'
-                }`}
-                disabled={channel.isTracked}
-              >
-                {channel.isTracked ? '追跡中' : '追跡に追加'}
-              </button>
+              />
               
               <button
                 onClick={(e) => {

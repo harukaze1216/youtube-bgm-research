@@ -371,6 +371,83 @@ export async function markChannelAsViewed(channelDocId) {
 }
 
 /**
+ * チャンネルのステータスを更新
+ * @param {string} channelId - チャンネルID（ドキュメントID）
+ * @param {string} status - 新しいステータス ('tracking', 'non-tracking', 'rejected')
+ * @param {string} reason - ステータス変更理由（オプション）
+ * @returns {Promise<boolean>} 更新成功時true
+ */
+export async function updateChannelStatus(channelId, status, reason = null) {
+  try {
+    const channelRef = doc(db, 'bgm_channels', channelId);
+    
+    const updateData = {
+      status: status,
+      statusUpdatedAt: new Date(),
+      statusUpdatedBy: 'user'
+    };
+    
+    if (reason) {
+      updateData.rejectionReason = reason;
+    }
+    
+    await updateDoc(channelRef, updateData);
+    console.log(`✅ Updated channel status: ${channelId} -> ${status}`);
+    return true;
+  } catch (error) {
+    console.error(`Error updating channel status for ${channelId}:`, error);
+    return false;
+  }
+}
+
+/**
+ * ステータス別チャンネル検索
+ * @param {string} status - 検索するステータス ('tracking', 'non-tracking', 'rejected', 'unset', 'all')
+ * @param {Object} additionalFilters - 追加フィルター
+ * @returns {Promise<Array>} チャンネルリスト
+ */
+export async function getChannelsByStatus(status = 'all', additionalFilters = {}) {
+  try {
+    let q = collection(db, 'bgm_channels');
+    
+    // ステータスフィルター
+    if (status !== 'all') {
+      if (status === 'unset') {
+        // ステータスが未設定のチャンネルを取得
+        q = query(q, where('status', '==', null));
+      } else {
+        q = query(q, where('status', '==', status));
+      }
+    }
+    
+    // 基本的なソート（作成日時順）
+    // q = query(q, orderBy('createdAt', 'desc'));
+    
+    const querySnapshot = await getDocs(q);
+    const channels = [];
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      channels.push({
+        id: doc.id,
+        ...data
+      });
+    });
+    
+    // ステータスが未設定のものを含める場合のフィルタリング
+    if (status === 'unset') {
+      return channels.filter(channel => !channel.status || channel.status === null || channel.status === undefined);
+    }
+    
+    console.log(`📊 Found ${channels.length} channels with status: ${status}`);
+    return channels;
+  } catch (error) {
+    console.error('Error getting channels by status:', error);
+    return [];
+  }
+}
+
+/**
  * Firestoreからチャンネル一覧を取得（フィルタ対応）
  * @param {Object} filters - フィルタ条件
  */
