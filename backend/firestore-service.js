@@ -39,10 +39,10 @@ export async function saveChannel(channelData) {
     // データの前処理
     const processedData = processChannelData(channelData);
     
-    // 新規チャンネルのデフォルトステータスを設定
-    processedData.status = 'non-tracking';
-    processedData.statusUpdatedAt = new Date();
-    processedData.statusUpdatedBy = 'system';
+    // 新規チャンネルはステータス未設定のまま保存（ユーザーが手動で仕分けするため）
+    // processedData.status = 'non-tracking'; // コメントアウト
+    // processedData.statusUpdatedAt = new Date();
+    // processedData.statusUpdatedBy = 'system';
     
     await docRef.set(processedData);
     console.log(`✅ Saved channel: ${channelData.channelTitle} (${channelData.subscriberCount} subscribers)`);
