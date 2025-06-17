@@ -17,7 +17,20 @@ export const BGM_KEYWORDS = {
     'instrumental music',
     'chillhop',
     'downtempo',
-    'meditation music'
+    'meditation music',
+    'synthwave',
+    'chillwave',
+    'new age',
+    'nature sounds',
+    'white noise',
+    'brown noise',
+    'rain sounds',
+    'forest sounds',
+    'ocean sounds',
+    'binaural beats',
+    '432hz',
+    '528hz',
+    'healing frequency'
   ],
   
   // 利用シーン別キーワード
@@ -33,7 +46,20 @@ export const BGM_KEYWORDS = {
     'background music',
     'calm music',
     'peaceful music',
-    'zen music'
+    'zen music',
+    'workout music',
+    'yoga music',
+    'spa music',
+    'massage music',
+    'cooking music',
+    'driving music',
+    'morning music',
+    'evening music',
+    'night music',
+    'rainy day music',
+    'sunday morning',
+    'deep focus',
+    'productivity music'
   ],
   
   // 日本語キーワード
@@ -47,7 +73,22 @@ export const BGM_KEYWORDS = {
     '集中BGM',
     'ピアノBGM',
     'ジャズBGM',
-    'ヒーリングミュージック'
+    'ヒーリングミュージック',
+    '瞑想BGM',
+    'ヨガBGM',
+    'スパBGM',
+    '読書BGM',
+    'ドライブBGM',
+    '雨音BGM',
+    '自然音BGM',
+    'おしゃれBGM',
+    'モーニングBGM',
+    'イブニングBGM',
+    'ナイトBGM',
+    '癒しの音楽',
+    '集中力アップ',
+    '疲労回復',
+    'ストレス解消'
   ]
 };
 

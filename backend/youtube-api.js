@@ -265,3 +265,106 @@ export async function getChannelMostPopularVideo(channelId) {
     return null;
   }
 }
+
+/**
+ * Search for channels by keyword
+ * @param {string} keyword - Search keyword
+ * @param {number} maxResults - Maximum results to return
+ * @returns {Promise<Array>} Array of channel IDs
+ */
+export async function searchChannelsByKeyword(keyword, maxResults = 50) {
+  try {
+    const response = await youtube.search.list({
+      part: 'snippet',
+      q: keyword,
+      type: 'channel',
+      maxResults,
+      regionCode: 'JP'
+    });
+
+    const channelIds = [];
+    if (response.data.items) {
+      response.data.items.forEach(item => {
+        if (item.snippet?.channelId) {
+          channelIds.push(item.snippet.channelId);
+        }
+      });
+    }
+
+    return channelIds;
+  } catch (error) {
+    console.error(`Channel search error for keyword "${keyword}":`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Get related channels (placeholder - YouTube API doesn't directly support this)
+ * This is a workaround using channel's featured channels or similar channels
+ * @param {string} channelId - Source channel ID
+ * @returns {Promise<Array>} Array of related channel IDs
+ */
+export async function getRelatedChannels(channelId) {
+  try {
+    // Workaround: Search for videos from this channel and find other channels
+    // that appear in search results for similar content
+    const channelDetails = await getChannelDetails(channelId);
+    if (!channelDetails) return [];
+
+    // Use channel keywords for search
+    const searchTerms = channelDetails.channelTitle.split(' ').slice(0, 3).join(' ');
+    const response = await youtube.search.list({
+      part: 'snippet',
+      q: searchTerms + ' BGM',
+      type: 'video',
+      maxResults: 50,
+      regionCode: 'JP'
+    });
+
+    const relatedChannelIds = new Set();
+    if (response.data.items) {
+      response.data.items.forEach(item => {
+        if (item.snippet?.channelId && item.snippet.channelId !== channelId) {
+          relatedChannelIds.add(item.snippet.channelId);
+        }
+      });
+    }
+
+    return Array.from(relatedChannelIds);
+  } catch (error) {
+    console.error(`Related channels error for channel "${channelId}":`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Search for playlists and extract channel IDs
+ * @param {string} keyword - Search keyword
+ * @param {number} maxResults - Maximum results to return
+ * @returns {Promise<Array>} Array of channel IDs from playlists
+ */
+export async function searchPlaylistChannels(keyword, maxResults = 50) {
+  try {
+    const response = await youtube.search.list({
+      part: 'snippet',
+      q: keyword,
+      type: 'playlist',
+      maxResults,
+      regionCode: 'JP'
+    });
+
+    const channelIds = new Set();
+    if (response.data.items) {
+      response.data.items.forEach(item => {
+        if (item.snippet?.channelId) {
+          channelIds.add(item.snippet.channelId);
+        }
+      });
+    }
+
+    return Array.from(channelIds);
+  } catch (error) {
+    console.error(`Playlist search error for keyword "${keyword}":`, error.message);
+    return [];
+  }
+}
