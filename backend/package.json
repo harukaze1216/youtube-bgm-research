@@ -7,8 +7,11 @@
   "scripts": {
     "start": "node index.js",
     "collect": "node collect-channels.js",
+    "smart-collect": "node smart-collect.js",
+    "enhanced-collect": "node enhanced-collection.js",
     "track": "node track-channels.js",
     "fetch": "node manual-fetch.js",
+    "quota": "node -e \"import('./quota-monitor.js').then(m => m.displayQuotaStatus())\"",
     "dev": "node --watch index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

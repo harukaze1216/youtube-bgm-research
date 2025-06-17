@@ -21,9 +21,9 @@ dotenv.config();
 
 // 収集設定
 const COLLECTION_CONFIG = {
-  keywordCount: 20,         // 使用するキーワード数（大幅増加）
-  videosPerKeyword: 50,     // キーワードあたりの動画検索数
-  monthsThreshold: 6,       // 何ヶ月以内のチャンネルを対象とするか（期間延長で母数増加）
+  keywordCount: 10,         // 使用するキーワード数（クォータ効率化）
+  videosPerKeyword: 25,     // キーワードあたりの動画検索数（クォータ効率化）
+  monthsThreshold: 6,       // 何ヶ月以内のチャンネルを対象とするか
   minSubscribers: 100,      // 最小登録者数（大幅緩和）
   maxSubscribers: 1000000,  // 最大登録者数（拡大）
   minVideos: 2,             // 最小動画数（緩和）
@@ -43,9 +43,20 @@ async function main() {
     // 1. 既存チャンネルIDを取得（重複回避のため）
     const existingChannelIds = await getExistingChannelIds();
     
-    // 2. キーワード選択（設定から取得、フォールバックあり）
-    const keywords = await getRotatingKeywordsFromSettings(COLLECTION_CONFIG.keywordCount);
-    console.log(`📝 Selected keywords (from settings): ${keywords.join(', ')}`);
+    // 2. キーワード選択（効率的なローテーション）
+    const { getHighPriorityKeywords } = await import('./keywords.js');
+    const priorityKeywords = getHighPriorityKeywords(COLLECTION_CONFIG.keywordCount * 2);
+    
+    // 日付ベースでキーワードをローテーション（毎日違うキーワードセット）
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+    const startIndex = (dayOfYear * 2) % priorityKeywords.length;
+    const keywords = [];
+    for (let i = 0; i < COLLECTION_CONFIG.keywordCount; i++) {
+      const index = (startIndex + i) % priorityKeywords.length;
+      keywords.push(priorityKeywords[index]);
+    }
+    
+    console.log(`📝 Daily rotating keywords (day ${dayOfYear}): ${keywords.join(', ')}`);
 
     // 3. 動的な検索期間を設定（既存チャンネル数に応じて調整）
     const searchPeriodMonths = existingChannelIds.size > 10 ? 
