@@ -4,10 +4,11 @@
  */
 
 export const BGM_KEYWORDS = {
-  // ジャンル別キーワード
+  // ジャンル別キーワード（効果的なものを厳選）
   genres: [
     'lofi',
     'lo-fi',
+    'lofi hip hop',
     'chill music',
     'jazz BGM',
     'ambient music',
@@ -20,49 +21,53 @@ export const BGM_KEYWORDS = {
     'meditation music',
     'synthwave',
     'chillwave',
-    'new age',
+    'new age music',
     'nature sounds',
     'white noise',
     'brown noise',
+    'pink noise',
     'rain sounds',
     'forest sounds',
     'ocean sounds',
+    'cafe sounds',
     'binaural beats',
-    '432hz',
-    '528hz',
-    'healing frequency'
+    '432hz music',
+    '528hz healing',
+    'solfeggio frequencies',
+    'tibetan singing bowls',
+    'celtic music'
   ],
   
-  // 利用シーン別キーワード
+  // 利用シーン別キーワード（需要の高いシーンを重点的に）
   scenes: [
     'study music',
     'work music',
     'focus music',
+    'concentration music',
     'sleep music',
-    'relaxing BGM',
+    'relaxing music',
     'coffee shop music',
     'reading music',
-    'concentration music',
     'background music',
     'calm music',
     'peaceful music',
     'zen music',
-    'workout music',
     'yoga music',
     'spa music',
     'massage music',
     'cooking music',
-    'driving music',
-    'morning music',
-    'evening music',
-    'night music',
-    'rainy day music',
-    'sunday morning',
     'deep focus',
-    'productivity music'
+    'productivity music',
+    'study beats',
+    'work from home music',
+    'mindfulness music',
+    'stress relief music',
+    'anxiety relief',
+    'healing music',
+    'therapeutic music'
   ],
   
-  // 日本語キーワード
+  // 日本語キーワード（日本市場に特化）
   japanese: [
     'BGM',
     '作業用BGM',
@@ -78,17 +83,50 @@ export const BGM_KEYWORDS = {
     'ヨガBGM',
     'スパBGM',
     '読書BGM',
-    'ドライブBGM',
-    '雨音BGM',
-    '自然音BGM',
     'おしゃれBGM',
-    'モーニングBGM',
-    'イブニングBGM',
-    'ナイトBGM',
     '癒しの音楽',
     '集中力アップ',
     '疲労回復',
-    'ストレス解消'
+    'ストレス解消',
+    '勉強 音楽',
+    '作業 音楽',
+    '睡眠 音楽',
+    'リラックス 音楽',
+    'チルアウト',
+    'アンビエント'
+  ],
+  
+  // 新しいトレンドキーワード
+  trending: [
+    'study with me',
+    'cozy music',
+    'cottagecore music',
+    'dark academia',
+    'ghibli music',
+    'anime lofi',
+    'minecraft music',
+    'aesthetic music',
+    'vaporwave',
+    'synthwave aesthetic',
+    'retrowave',
+    'bedroom pop',
+    'indie folk',
+    'soft piano',
+    'guitar lofi'
+  ],
+  
+  // 特定ジャンル・スタイル
+  specific: [
+    'jazz cafe',
+    'bossa nova',
+    'smooth jazz',
+    'nordic music',
+    'scandinavian music',
+    'minimalist music',
+    'drone music',
+    'field recording',
+    'generative music',
+    'algorithmic music'
   ]
 };
 
@@ -100,8 +138,42 @@ export function getAllKeywords() {
   return [
     ...BGM_KEYWORDS.genres,
     ...BGM_KEYWORDS.scenes,
-    ...BGM_KEYWORDS.japanese
+    ...BGM_KEYWORDS.japanese,
+    ...BGM_KEYWORDS.trending,
+    ...BGM_KEYWORDS.specific
   ];
+}
+
+/**
+ * 効果的なキーワードを優先度順で取得
+ * @param {number} count - 取得するキーワード数
+ * @returns {Array<string>} 優先度順のキーワード
+ */
+export function getHighPriorityKeywords(count = 30) {
+  // 効果的なキーワードを優先度順で定義
+  const priorityKeywords = [
+    // 超高優先度（最も効果的）
+    'lofi', 'study music', 'BGM', '作業用BGM',
+    'chill music', 'relaxing music', 'sleep music', 'piano BGM',
+    
+    // 高優先度（トレンド・需要高）
+    'lofi hip hop', 'focus music', 'work music', '勉強用BGM',
+    'jazz BGM', 'cafe music', 'ambient music', 'meditation music',
+    
+    // 中優先度（ニッチだが効果的）
+    'study with me', 'coffee shop music', 'nature sounds', 'white noise',
+    'concentration music', 'healing music', 'zen music', 'spa music',
+    
+    // トレンド（新しい市場）
+    'aesthetic music', 'dark academia', 'cozy music', 'ghibli music',
+    'anime lofi', 'vaporwave', 'synthwave', 'bedroom pop',
+    
+    // 日本語特化
+    '睡眠用BGM', 'リラックス BGM', 'ヒーリングミュージック', '集中BGM',
+    'カフェ BGM', '癒しの音楽', 'チルアウト', '瞑想BGM'
+  ];
+  
+  return priorityKeywords.slice(0, count);
 }
 
 /**

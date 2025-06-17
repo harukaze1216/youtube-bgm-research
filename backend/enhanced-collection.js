@@ -15,7 +15,7 @@ import {
   getRelatedChannels,
   searchChannelsByKeyword
 } from './youtube-api.js';
-import { getAllKeywords } from './keywords.js';
+import { getAllKeywords, getHighPriorityKeywords } from './keywords.js';
 import { filterChannels } from './channel-filter.js';
 import { saveChannels, getExistingChannelIds } from './firestore-service.js';
 
@@ -56,21 +56,23 @@ async function enhancedChannelCollection() {
     const existingChannelIds = await getExistingChannelIds();
     console.log(`📊 Current database: ${existingChannelIds.size} channels`);
     
-    // 2. 全キーワードを取得
+    // 2. 優先度の高いキーワードを取得
+    const priorityKeywords = getHighPriorityKeywords(ENHANCED_CONFIG.keywordCount);
     const allKeywords = getAllKeywords();
-    console.log(`📝 Available keywords: ${allKeywords.length}`);
+    console.log(`📝 Using ${priorityKeywords.length} priority keywords from ${allKeywords.length} available keywords`);
+    console.log(`🎯 Priority keywords: ${priorityKeywords.slice(0, 10).join(', ')}...`);
     
     // 3. チャンネルID収集用のセット
     const allChannelIds = new Set();
     
-    // 手法1: 従来の動画検索
+    // 手法1: 従来の動画検索（優先キーワード使用）
     console.log('\\n🔍 Method 1: Video Search');
-    await collectFromVideoSearch(allKeywords, allChannelIds, existingChannelIds);
+    await collectFromVideoSearch(priorityKeywords, allChannelIds, existingChannelIds);
     
     // 手法2: チャンネル名直接検索
     if (ENHANCED_CONFIG.useChannelSearch) {
       console.log('\\n🔍 Method 2: Channel Name Search');
-      await collectFromChannelSearch(allKeywords, allChannelIds, existingChannelIds);
+      await collectFromChannelSearch(priorityKeywords, allChannelIds, existingChannelIds);
     }
     
     // 手法3: 関連チャンネル探索
@@ -82,7 +84,7 @@ async function enhancedChannelCollection() {
     // 手法4: プレイリスト検索
     if (ENHANCED_CONFIG.usePlaylistSearch) {
       console.log('\\n🔍 Method 4: Playlist Search');
-      await collectFromPlaylistSearch(allKeywords, allChannelIds, existingChannelIds);
+      await collectFromPlaylistSearch(priorityKeywords, allChannelIds, existingChannelIds);
     }
     
     console.log(`\\n📊 Total unique new channels found: ${allChannelIds.size}`);
