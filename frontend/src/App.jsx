@@ -30,11 +30,13 @@ function AppContent() {
     search: ''
   });
 
-  // Load channels from Firestore
+  // Load channels from Firestore when user is authenticated
   useEffect(() => {
-    loadChannels();
-    loadTrackedChannels();
-  }, []);
+    if (user) {
+      loadChannels();
+      loadTrackedChannels();
+    }
+  }, [user]);
 
   // Apply filters and sorting
   useEffect(() => {
@@ -43,12 +45,14 @@ function AppContent() {
 
   // Reload channels when filter changes
   useEffect(() => {
-    if (filters.filterBy !== 'all' && filters.filterBy !== 'growing' && filters.filterBy !== 'large' && filters.filterBy !== 'small') {
+    if (user && filters.filterBy !== 'all' && filters.filterBy !== 'growing' && filters.filterBy !== 'large' && filters.filterBy !== 'small') {
       loadChannels();
     }
-  }, [filters.filterBy]);
+  }, [filters.filterBy, user]);
 
   const loadChannels = async () => {
+    if (!user) return; // ユーザーが認証されていない場合は何もしない
+    
     try {
       setLoading(true);
       const { getChannelsByStatus } = await import('./services/channelService');
@@ -87,6 +91,8 @@ function AppContent() {
   };
 
   const loadTrackedChannels = async () => {
+    if (!user) return; // ユーザーが認証されていない場合は何もしない
+    
     try {
       const trackedChannelsQuery = query(
         collection(db, 'tracked_channels'),
