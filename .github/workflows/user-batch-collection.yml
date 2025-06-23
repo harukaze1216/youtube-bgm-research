@@ -1,9 +1,9 @@
 name: User Batch BGM Collection
 
 on:
-  # 毎日午前9時（UTC）に実行
+  # 毎日午前5時（JST）= UTC 20時（前日）に実行
   schedule:
-    - cron: '0 9 * * *'
+    - cron: '0 20 * * *'
   
   # 手動実行も可能
   workflow_dispatch:

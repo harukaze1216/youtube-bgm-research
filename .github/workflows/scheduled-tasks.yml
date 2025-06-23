@@ -1,73 +1,32 @@
-name: Scheduled Channel and Tracking Data Collection
+name: Scheduled Tasks (Legacy - Disabled)
 
 on:
-  schedule:
-    # 日本時間朝5時 = UTC 20時（前日）
-    - cron: '0 20 * * *'
-  workflow_dispatch: # 手動実行も可能
+  # 旧スケジュールタスクは無効化
+  # 新しいユーザーバッチワークフローを使用:
+  # - user-batch-collection.yml: 毎日JST 5時（UTC 20時前日）でチャンネル収集
+  # - user-batch-tracking.yml: 毎週月曜JST 5時（UTC 20時日曜）でトラッキング更新
+  # schedule:
+  #   - cron: '0 20 * * *'
+  
+  # 手動実行のみ有効（テスト用）
+  workflow_dispatch:
 
 jobs:
-  collect-channels:
+  legacy-notice:
     runs-on: ubuntu-latest
-    name: Collect New Channels
+    name: Legacy Workflow Notice
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install dependencies
+      - name: Display migration notice
         run: |
-          cd backend
-          npm ci
-
-      - name: Run smart channel collection
-        env:
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
-          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-        run: |
-          cd backend
-          echo "🧠 Starting smart channel collection at $(date)"
-          node smart-collect.js
-          echo "✅ Smart channel collection completed at $(date)"
-
-  update-tracking-data:
-    runs-on: ubuntu-latest
-    name: Update Tracking Data
-    needs: collect-channels
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd backend
-          npm ci
-
-      - name: Run tracking data update
-        env:
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
-          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-        run: |
-          cd backend
-          echo "📊 Starting tracking data update at $(date)"
-          node track-channels.js
-          echo "✅ Tracking data update completed at $(date)"
+          echo "⚠️ This workflow has been replaced by user-specific batch workflows:"
+          echo "📅 Daily Channel Collection: user-batch-collection.yml"
+          echo "📊 Weekly Tracking Updates: user-batch-tracking.yml"
+          echo ""
+          echo "These new workflows provide:"
+          echo "✅ User-specific data isolation"
+          echo "✅ Individual API key usage"
+          echo "✅ Parallel batch processing"
+          echo "✅ Enhanced error handling"
+          echo ""
+          echo "Please use the new workflows for production scheduling."

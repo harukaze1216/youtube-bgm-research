@@ -1,9 +1,9 @@
 name: User Batch Tracking Update
 
 on:
-  # 毎週日曜日の午前10時（UTC）に実行
+  # 毎週月曜日の午前5時（JST）= UTC 20時（日曜日）に実行
   schedule:
-    - cron: '0 10 * * 0'
+    - cron: '0 20 * * 0'
   
   # 手動実行も可能
   workflow_dispatch:
