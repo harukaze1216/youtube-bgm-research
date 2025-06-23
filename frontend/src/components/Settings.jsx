@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { setGitHubToken, hasGitHubToken, validateGitHubToken } from '../services/githubService';
+import { useAuth } from '../contexts/AuthContext';
 
 const Settings = () => {
+  const { user } = useAuth();
   const [settings, setSettings] = useState({
     // 基本設定
     youtubeApiKey: '',
@@ -48,12 +50,17 @@ const Settings = () => {
   const [githubTokenStatus, setGithubTokenStatus] = useState('unchecked');
 
   useEffect(() => {
-    loadSettings();
-  }, []);
+    if (user) {
+      loadSettings();
+    }
+  }, [user]);
 
   const loadSettings = async () => {
+    if (!user) return;
+    
     try {
-      const settingsDoc = await getDoc(doc(db, 'settings', 'app_config'));
+      // ユーザー固有の設定を読み込み
+      const settingsDoc = await getDoc(doc(db, 'settings', user.uid));
       if (settingsDoc.exists()) {
         setSettings(prev => ({ ...prev, ...settingsDoc.data() }));
       }
@@ -96,7 +103,8 @@ const Settings = () => {
       const settingsToSave = { ...settings };
       delete settingsToSave.githubToken;
       
-      await setDoc(doc(db, 'settings', 'app_config'), settingsToSave);
+      // ユーザー固有のドキュメントIDで保存
+      await setDoc(doc(db, 'settings', user.uid), settingsToSave);
       
       if (!settings.githubToken || settings.githubToken === '●●●●●●●●●●●●') {
         setMessage('設定を保存しました');
@@ -112,10 +120,16 @@ const Settings = () => {
   };
 
   const exportData = async (format) => {
+    if (!user) return;
+    
     try {
-      // チャンネルデータとトラッキングデータを取得
-      const channelsSnapshot = await getDocs(collection(db, 'channels'));
-      const trackingSnapshot = await getDocs(collection(db, 'tracking_data'));
+      // ユーザー固有のチャンネルデータとトラッキングデータを取得
+      const channelsSnapshot = await getDocs(
+        query(collection(db, 'bgm_channels'), where('userId', '==', user.uid))
+      );
+      const trackingSnapshot = await getDocs(
+        query(collection(db, 'tracking_data'), where('userId', '==', user.uid))
+      );
       
       const channels = channelsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       const tracking = trackingSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -259,16 +273,30 @@ const Settings = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     YouTube API キー
                   </label>
-                  <input
-                    type="password"
-                    value={settings.youtubeApiKey}
-                    onChange={(e) => setSettings(prev => ({ ...prev, youtubeApiKey: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="YouTube Data API v3 キーを入力"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Google Cloud Consoleで取得したAPIキーを設定してください
-                  </p>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={settings.youtubeApiKey}
+                      onChange={(e) => setSettings(prev => ({ ...prev, youtubeApiKey: e.target.value }))}
+                      className={`w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 pr-10 ${
+                        settings.youtubeApiKey ? 'border-green-300' : 'border-gray-300'
+                      }`}
+                      placeholder="YouTube Data API v3 キーを入力"
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      {settings.youtubeApiKey && <span className="text-green-500">✓</span>}
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1 space-y-1">
+                    <p>🔑 <strong>自分でAPIキーを取得してください：</strong></p>
+                    <ol className="list-decimal list-inside ml-4 space-y-1">
+                      <li><a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Cloud Console</a> でプロジェクトを作成</li>
+                      <li>「YouTube Data API v3」を有効化</li>
+                      <li>認証情報でAPIキーを作成し、API制限を設定</li>
+                      <li>作成したAPIキーをここに入力</li>
+                    </ol>
+                    <p className="text-amber-600 font-medium">⚠️ 各ユーザーが個別にAPIキーを設定する必要があります</p>
+                  </div>
                 </div>
 
                 <div>

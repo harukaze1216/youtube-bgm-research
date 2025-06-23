@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import TrackingChart from './TrackingChart';
 
 const TrackingDashboard = ({ selectedChannelId }) => {
+  const { user } = useAuth();
   const [trackingData, setTrackingData] = useState({
     subscriberCount: [],
     videoCount: [],
@@ -15,21 +17,25 @@ const TrackingDashboard = ({ selectedChannelId }) => {
   const [currentSelectedChannelId, setCurrentSelectedChannelId] = useState(selectedChannelId);
 
   useEffect(() => {
-    loadTrackedChannels();
-  }, []);
+    if (user) {
+      loadTrackedChannels();
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (currentSelectedChannelId) {
+    if (user && currentSelectedChannelId) {
       loadTrackingData(currentSelectedChannelId);
     }
-  }, [currentSelectedChannelId]);
+  }, [currentSelectedChannelId, user]);
 
   const loadTrackedChannels = async () => {
+    if (!user) return;
+    
     try {
       setChannelsLoading(true);
       // 新しいステータス管理システムを使用
       const { getChannelsByStatus } = await import('../services/channelService');
-      const trackingChannels = await getChannelsByStatus('tracking');
+      const trackingChannels = await getChannelsByStatus('tracking', user.uid);
       
       setTrackedChannels(trackingChannels);
     } catch (error) {
@@ -40,6 +46,8 @@ const TrackingDashboard = ({ selectedChannelId }) => {
   };
 
   const loadTrackingData = async (channelId) => {
+    if (!user) return;
+    
     try {
       setLoading(true);
       console.log('Loading tracking data for:', channelId);
@@ -49,7 +57,8 @@ const TrackingDashboard = ({ selectedChannelId }) => {
         const querySnapshot = await getDocs(
           query(
             collection(db, 'tracking_data'),
-            where('channelId', '==', channelId)
+            where('channelId', '==', channelId),
+            where('userId', '==', user.uid)
           )
         );
         

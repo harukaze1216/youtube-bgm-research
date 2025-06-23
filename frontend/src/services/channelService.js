@@ -1,5 +1,36 @@
-import { collection, addDoc, query, where, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+
+/**
+ * ユーザーの設定からYouTube APIキーを取得
+ */
+async function getUserApiKey(userId) {
+  if (!userId) {
+    throw new Error('ユーザーIDが必要です');
+  }
+  
+  try {
+    const settingsDoc = await getDoc(doc(db, 'settings', userId));
+    if (!settingsDoc.exists()) {
+      throw new Error('⚠️ 設定が見つかりません。\n\n📋 対処法：\n1. 画面右上の「設定」タブをクリック\n2. YouTube APIキーを入力して保存\n3. 再度お試しください');
+    }
+    
+    const apiKey = settingsDoc.data().youtubeApiKey;
+    if (!apiKey || apiKey.trim() === '') {
+      throw new Error('🔑 YouTube APIキーが設定されていません。\n\n📋 設定手順：\n1. Google Cloud Consoleでプロジェクトを作成\n2. YouTube Data API v3を有効化\n3. APIキーを作成\n4. 設定画面でAPIキーを入力');
+    }
+    
+    // APIキーの基本的な形式チェック
+    if (!apiKey.startsWith('AIza') || apiKey.length < 35) {
+      throw new Error('❌ APIキーの形式が正しくありません。\n\nYouTube Data API v3のAPIキーは「AIza」で始まり、39文字の長さである必要があります。');
+    }
+    
+    return apiKey;
+  } catch (error) {
+    console.error('APIキー取得エラー:', error);
+    throw error;
+  }
+}
 
 /**
  * チャンネルURLまたはIDからチャンネルIDを抽出
@@ -29,10 +60,10 @@ export function extractChannelId(input) {
 /**
  * YouTube Data APIを使ってチャンネル情報を取得
  */
-export async function fetchChannelInfo(channelId) {
+export async function fetchChannelInfo(channelId, userId) {
   try {
-    // YouTube Data API v3のエンドポイント
-    const API_KEY = 'AIzaSyDN1sTee52txGVYpQwSWgAD7FUr4NNJinQ';
+    // ユーザー設定からAPIキーを取得
+    const API_KEY = await getUserApiKey(userId);
     const baseUrl = 'https://www.googleapis.com/youtube/v3/channels';
     const params = new URLSearchParams({
       key: API_KEY,
@@ -76,9 +107,9 @@ export async function fetchChannelInfo(channelId) {
 /**
  * チャンネルの最初の動画を取得
  */
-export async function fetchChannelFirstVideo(uploadsPlaylistId) {
+export async function fetchChannelFirstVideo(uploadsPlaylistId, userId) {
   try {
-    const API_KEY = 'AIzaSyDN1sTee52txGVYpQwSWgAD7FUr4NNJinQ';
+    const API_KEY = await getUserApiKey(userId);
     const baseUrl = 'https://www.googleapis.com/youtube/v3/playlistItems';
     
     let oldestVideo = null;
@@ -195,14 +226,14 @@ export function isBGMChannel(title, description) {
 /**
  * チャンネルの最も人気の動画を取得
  */
-export async function fetchChannelMostPopularVideo(uploadsPlaylistId) {
+export async function fetchChannelMostPopularVideo(uploadsPlaylistId, userId) {
   try {
     if (!uploadsPlaylistId) {
       console.error('uploadsPlaylistId is required');
       return null;
     }
     
-    const API_KEY = 'AIzaSyDN1sTee52txGVYpQwSWgAD7FUr4NNJinQ';
+    const API_KEY = await getUserApiKey(userId);
     const baseUrl = 'https://www.googleapis.com/youtube/v3/playlistItems';
     
     let mostPopularVideo = null;
@@ -245,7 +276,7 @@ export async function fetchChannelMostPopularVideo(uploadsPlaylistId) {
       if (data.items && data.items.length > 0) {
         // このページの動画の詳細情報を取得
         const videoIds = data.items.map(item => item.snippet.resourceId.videoId);
-        const videoDetails = await fetchVideoStatistics(videoIds);
+        const videoDetails = await fetchVideoStatistics(videoIds, userId);
         
         // 動画詳細と組み合わせて最も人気の動画を探す
         for (let i = 0; i < data.items.length; i++) {
@@ -294,9 +325,9 @@ export async function fetchChannelMostPopularVideo(uploadsPlaylistId) {
 /**
  * 複数動画の統計情報を一括取得
  */
-async function fetchVideoStatistics(videoIds) {
+async function fetchVideoStatistics(videoIds, userId) {
   try {
-    const API_KEY = 'AIzaSyDN1sTee52txGVYpQwSWgAD7FUr4NNJinQ';
+    const API_KEY = await getUserApiKey(userId);
     const baseUrl = 'https://www.googleapis.com/youtube/v3/videos';
     const params = new URLSearchParams({
       key: API_KEY,

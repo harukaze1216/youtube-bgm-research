@@ -183,7 +183,7 @@ function AppContent() {
       }
       
       // チャンネル情報を取得
-      const channelInfo = await fetchChannelInfo(channelId);
+      const channelInfo = await fetchChannelInfo(channelId, user.uid);
       
       // BGMチャンネルかチェック
       if (!isBGMChannel(channelInfo.channelTitle, channelInfo.description)) {
@@ -192,7 +192,7 @@ function AppContent() {
       }
       
       // 最初の動画を取得
-      const firstVideo = await fetchChannelFirstVideo(channelInfo.uploadsPlaylistId);
+      const firstVideo = await fetchChannelFirstVideo(channelInfo.uploadsPlaylistId, user.uid);
       
       // 成長率を計算
       const growthRate = calculateGrowthRate(channelInfo, firstVideo);
