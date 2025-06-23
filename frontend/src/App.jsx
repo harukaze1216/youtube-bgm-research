@@ -297,14 +297,14 @@ function AppContent() {
       let uploadsPlaylistId = channel.uploadsPlaylistId;
       if (!uploadsPlaylistId) {
         console.log('uploadsPlaylistId not found, fetching channel info...');
-        const channelInfo = await fetchChannelInfo(channel.channelId);
+        const channelInfo = await fetchChannelInfo(channel.channelId, user.uid);
         uploadsPlaylistId = channelInfo.uploadsPlaylistId;
       }
       
       console.log('Using uploadsPlaylistId:', uploadsPlaylistId);
       
       // 最も人気の動画を取得
-      const popularVideo = await fetchChannelMostPopularVideo(uploadsPlaylistId);
+      const popularVideo = await fetchChannelMostPopularVideo(uploadsPlaylistId, user.uid);
       
       if (popularVideo) {
         setChannelDetails({
