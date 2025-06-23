@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, updateDoc, serverTimestamp, getDoc, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 
 /**
@@ -403,10 +403,11 @@ export async function addChannelToFirestore(channelData, userId) {
 /**
  * チャンネルを表示済みとしてマーク
  * @param {string} channelDocId - Firestoreドキュメント ID
+ * @param {string} userId - ユーザーID
  */
-export async function markChannelAsViewed(channelDocId) {
+export async function markChannelAsViewed(channelDocId, userId) {
   try {
-    const channelRef = doc(db, 'bgm_channels', channelDocId);
+    const channelRef = doc(db, 'users', userId, 'channels', channelDocId);
     await updateDoc(channelRef, {
       isViewed: true,
       viewedAt: serverTimestamp()
@@ -481,12 +482,13 @@ export async function getChannelsByStatus(status = 'all', userId, additionalFilt
     // ステータス別のフィルタリング
     let filteredChannels = channels;
     if (status === 'unset') {
-      // statusフィールドが存在しない、null、undefined、または空文字列の場合
+      // statusフィールドが存在しない、null、undefined、空文字列、または'unset'の場合
       filteredChannels = channels.filter(channel => 
         !channel.status || 
         channel.status === null || 
         channel.status === undefined || 
-        channel.status === ''
+        channel.status === '' ||
+        channel.status === 'unset'
       );
     }
     
@@ -548,7 +550,9 @@ export async function getTrackedChannels(userId) {
   }
 }
 
+// ⚠️ 非推奨: 代わりに getChannelsByStatus を使用してください
 export async function getChannelsFromFirestore(filters = {}) {
+  console.warn('getChannelsFromFirestore is deprecated. Use getChannelsByStatus instead.');
   try {
     let q = collection(db, 'bgm_channels');
     

@@ -175,7 +175,7 @@ function AppContent() {
       const channelId = extractChannelId(channelInput);
       
       // 既存チェック
-      const exists = await checkChannelExists(channelId);
+      const exists = await checkChannelExists(channelId, user.uid);
       if (exists) {
         alert('このチャンネルは既に追加されています');
         return;
@@ -235,7 +235,7 @@ function AppContent() {
         }
       }
       
-      await deleteDoc(doc(db, 'bgm_channels', docIdToDelete));
+      await deleteDoc(doc(db, 'users', user.uid, 'channels', docIdToDelete));
       await loadChannels();
       console.log(`✅ チャンネルを削除しました: ${docIdToDelete}`);
     } catch (error) {

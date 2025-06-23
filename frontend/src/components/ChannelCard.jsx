@@ -40,7 +40,7 @@ const ChannelCard = ({ channel, onChannelClick, onAddToTracking, onStatusChange 
     // NEWバッジを消すためにチャンネルを表示済みとしてマーク
     if (!isViewed && channel.id) {
       try {
-        await markChannelAsViewed(channel.id);
+        await markChannelAsViewed(channel.id, user.uid);
         setIsViewed(true);
       } catch (error) {
         console.error('Error marking channel as viewed:', error);
