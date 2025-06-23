@@ -32,13 +32,18 @@ export async function addChannelToTracking(channelId) {
 }
 
 /**
- * チャンネルのトラッキングデータを記録
+ * チャンネルのトラッキングデータを記録（ユーザー固有）
  * @param {string} channelId - チャンネルID
+ * @param {string} userId - ユーザーID
  * @param {Object} channelData - チャンネルデータ（省略時は再取得）
  * @returns {Promise<boolean>} 成功時true
  */
-export async function recordTrackingData(channelId, channelData = null) {
+export async function recordTrackingData(channelId, userId, channelData = null) {
   try {
+    if (!userId) {
+      throw new Error('User ID is required for tracking data');
+    }
+
     if (!channelData) {
       channelData = await getChannelDetails(channelId);
       if (!channelData) {
@@ -55,11 +60,11 @@ export async function recordTrackingData(channelId, channelData = null) {
       recordedAt: new Date()
     };
 
-    // tracking_data コレクションに週次データとして保存
+    // ユーザー固有のサブコレクションに保存
     const docId = `${channelId}_${new Date().toISOString().split('T')[0]}`;
-    await db.collection(COLLECTIONS.TRACKING_DATA).doc(docId).set(trackingDoc);
+    await db.collection('users').doc(userId).collection('trackingData').doc(docId).set(trackingDoc);
 
-    console.log(`📊 Recorded tracking data for: ${channelData.channelTitle}`);
+    console.log(`📊 Recorded tracking data for: ${channelData.channelTitle} (User: ${userId})`);
     return true;
   } catch (error) {
     console.error(`Error recording tracking data:`, error);
@@ -68,16 +73,28 @@ export async function recordTrackingData(channelId, channelData = null) {
 }
 
 /**
- * 追跡中のチャンネル一覧を取得（新しいステータス管理システム対応）
+ * 追跡中のチャンネル一覧を取得（ユーザー固有）
+ * @param {string} userId - ユーザーID
  * @returns {Promise<Array>} 追跡中チャンネルの配列
  */
-export async function getTrackedChannels() {
+export async function getTrackedChannels(userId) {
   try {
-    // 新しいステータス管理システムを使用
-    const { getChannelsByStatus } = await import('./firestore-service.js');
-    const trackingChannels = await getChannelsByStatus('tracking');
+    if (!userId) {
+      throw new Error('User ID is required for getting tracked channels');
+    }
+
+    // ユーザー固有のチャンネルでtrackingステータスのものを取得
+    const channelsSnapshot = await db.collection('users').doc(userId)
+      .collection('channels')
+      .where('status', '==', 'tracking')
+      .get();
     
-    console.log(`📊 Found ${trackingChannels.length} channels with tracking status`);
+    const trackingChannels = channelsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    console.log(`📊 Found ${trackingChannels.length} tracking channels for user ${userId}`);
     return trackingChannels;
   } catch (error) {
     console.error('Error getting tracked channels:', error);
@@ -86,18 +103,24 @@ export async function getTrackedChannels() {
 }
 
 /**
- * チャンネルのトラッキングデータ履歴を取得
+ * チャンネルのトラッキングデータ履歴を取得（ユーザー固有）
  * @param {string} channelId - チャンネルID
+ * @param {string} userId - ユーザーID
  * @param {number} days - 過去何日分のデータを取得するか（デフォルト: 30日）
  * @returns {Promise<Array>} トラッキングデータの配列
  */
-export async function getChannelTrackingHistory(channelId, days = 30) {
+export async function getChannelTrackingHistory(channelId, userId, days = 30) {
   try {
+    if (!userId) {
+      throw new Error('User ID is required for tracking history');
+    }
+
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // インデックスエラーを避けるためorderByを削除し、クライアントサイドでソート
-    const snapshot = await db.collection(COLLECTIONS.TRACKING_DATA)
+    // ユーザー固有のトラッキングデータから取得
+    const snapshot = await db.collection('users').doc(userId)
+      .collection('trackingData')
       .where('channelId', '==', channelId)
       .get();
 
