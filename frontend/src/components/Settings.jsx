@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc, collection, getDocs, query, where } from 'firebase
 import { db } from '../firebase';
 import { setGitHubToken, hasGitHubToken, validateGitHubToken } from '../services/githubService';
 import { useAuth } from '../contexts/AuthContext';
+import { migrateAllData } from '../utils/migrate-data';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -186,6 +187,43 @@ const Settings = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const migrateUserData = async () => {
+    const confirmed = confirm(
+      '既存のデータをユーザー aLb81rrXbdPfZj2BL4Jb64osrwq2 に移行します。\n\n' +
+      'この操作は取り消せません。続行しますか？'
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      setSaving(true);
+      setMessage('データ移行を実行中...');
+      
+      const result = await migrateAllData();
+      
+      if (result.success) {
+        const totalMigrated = result.results.bgm.updated + 
+                             result.results.tracked.updated + 
+                             result.results.tracking.updated;
+        
+        setMessage(
+          `✅ データ移行が完了しました！\n` +
+          `移行件数: ${totalMigrated}件\n` +
+          `実行時間: ${result.duration.toFixed(2)}秒`
+        );
+      } else {
+        setMessage(`❌ 移行エラー: ${result.error}`);
+      }
+      
+      setTimeout(() => setMessage(''), 10000);
+    } catch (error) {
+      console.error('データ移行エラー:', error);
+      setMessage('データ移行に失敗しました: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const addKeyword = (type) => {
@@ -673,6 +711,20 @@ const Settings = () => {
                         JSON形式でエクスポート
                       </button>
                     </div>
+                  </div>
+                  
+                  <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+                    <h3 className="font-medium text-gray-900 mb-2">🔧 レガシーデータ移行</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      既存のデータを指定ユーザー(aLb81rrXbdPfZj2BL4Jb64osrwq2)に移行します。
+                      <strong>※この操作は一度のみ実行してください。</strong>
+                    </p>
+                    <button
+                      onClick={migrateUserData}
+                      className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+                    >
+                      データ移行を実行
+                    </button>
                   </div>
 
                   <div className="border border-gray-200 rounded-lg p-4">
