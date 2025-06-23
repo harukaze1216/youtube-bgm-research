@@ -3,10 +3,21 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// デフォルトのYouTube APIクライアント
 const youtube = google.youtube({
   version: 'v3',
   auth: process.env.YOUTUBE_API_KEY
 });
+
+/**
+ * カスタムAPIキー用のYouTube APIクライアントを作成
+ */
+function createYouTubeClient(apiKey) {
+  return google.youtube({
+    version: 'v3',
+    auth: apiKey
+  });
+}
 
 /**
  * Search for videos using keywords
@@ -366,5 +377,371 @@ export async function searchPlaylistChannels(keyword, maxResults = 50) {
   } catch (error) {
     console.error(`Playlist search error for keyword "${keyword}":`, error.message);
     return [];
+  }
+}
+
+/**
+ * 統合チャンネル検索・収集関数
+ * ユーザーのAPIキーと設定を使用してチャンネルを検索・収集
+ */
+export async function searchAndCollectChannels(config, existingChannelIds = new Set()) {
+  const { apiKey, keywordCount, videosPerKeyword, maxChannelsPerRun, ...filterConfig } = config;
+  
+  try {
+    console.log(`🔍 収集開始: ${keywordCount}キーワード, ${videosPerKeyword}動画/キーワード`);
+    
+    // カスタムAPIキーでYouTubeクライアント作成
+    const customYoutube = createYouTubeClient(apiKey);
+    
+    // BGMキーワードを取得
+    const { getHighPriorityKeywords } = await import('./keywords.js');
+    const keywords = getHighPriorityKeywords(keywordCount);
+    
+    const allChannelIds = new Set();
+    let processedKeywords = 0;
+    
+    // キーワードごとに検索
+    for (const keyword of keywords) {
+      try {
+        console.log(`  🔍 キーワード "${keyword}" を検索中...`);
+        
+        // 動画検索でチャンネルIDを収集
+        const videoChannelIds = await searchVideoChannels(customYoutube, keyword, videosPerKeyword);
+        
+        // チャンネル検索も実行
+        const directChannelIds = await searchChannelsDirect(customYoutube, keyword, 20);
+        
+        // 結果をマージ
+        [...videoChannelIds, ...directChannelIds].forEach(channelId => {
+          if (!existingChannelIds.has(channelId)) {
+            allChannelIds.add(channelId);
+          }
+        });
+        
+        processedKeywords++;
+        console.log(`    ✓ ${videoChannelIds.length + directChannelIds.length}件発見 (累計: ${allChannelIds.size}件)`);
+        
+        // API制限対策の待機
+        await sleep(200);
+        
+      } catch (error) {
+        console.warn(`⚠️ キーワード "${keyword}" 検索エラー:`, error.message);
+        // 個別キーワードエラーは無視して継続
+      }
+    }
+    
+    console.log(`📋 発見したユニークチャンネル: ${allChannelIds.size}件`);
+    
+    if (allChannelIds.size === 0) {
+      return [];
+    }
+    
+    // チャンネル詳細を取得してフィルタリング
+    const channelIds = Array.from(allChannelIds).slice(0, maxChannelsPerRun);
+    const validChannels = await processChannelDetails(customYoutube, channelIds, filterConfig);
+    
+    console.log(`✅ フィルタ通過チャンネル: ${validChannels.length}件`);
+    return validChannels;
+    
+  } catch (error) {
+    console.error('❌ チャンネル収集エラー:', error);
+    throw error;
+  }
+}
+
+/**
+ * 動画検索からチャンネルIDを抽出
+ */
+async function searchVideoChannels(youtubeClient, keyword, maxResults) {
+  try {
+    const publishedAfter = new Date();
+    publishedAfter.setMonth(publishedAfter.getMonth() - 6); // 6ヶ月以内
+    
+    const response = await youtubeClient.search.list({
+      part: 'snippet',
+      q: keyword + ' BGM',
+      type: 'video',
+      maxResults,
+      order: 'relevance',
+      publishedAfter: publishedAfter.toISOString(),
+      regionCode: 'JP',
+      relevanceLanguage: 'ja'
+    });
+    
+    const channelIds = new Set();
+    if (response.data.items) {
+      response.data.items.forEach(item => {
+        if (item.snippet?.channelId) {
+          channelIds.add(item.snippet.channelId);
+        }
+      });
+    }
+    
+    return Array.from(channelIds);
+  } catch (error) {
+    console.warn(`動画検索エラー (${keyword}):`, error.message);
+    return [];
+  }
+}
+
+/**
+ * 直接チャンネル検索
+ */
+async function searchChannelsDirect(youtubeClient, keyword, maxResults) {
+  try {
+    const response = await youtubeClient.search.list({
+      part: 'snippet',
+      q: keyword + ' BGM',
+      type: 'channel',
+      maxResults,
+      regionCode: 'JP'
+    });
+    
+    const channelIds = [];
+    if (response.data.items) {
+      response.data.items.forEach(item => {
+        if (item.snippet?.channelId) {
+          channelIds.push(item.snippet.channelId);
+        }
+      });
+    }
+    
+    return channelIds;
+  } catch (error) {
+    console.warn(`チャンネル検索エラー (${keyword}):`, error.message);
+    return [];
+  }
+}
+
+/**
+ * チャンネル詳細取得とフィルタリング
+ */
+async function processChannelDetails(youtubeClient, channelIds, filterConfig) {
+  const validChannels = [];
+  const batchSize = 50; // YouTube API制限
+  
+  for (let i = 0; i < channelIds.length; i += batchSize) {
+    const batch = channelIds.slice(i, i + batchSize);
+    
+    try {
+      const response = await youtubeClient.channels.list({
+        part: 'snippet,statistics,contentDetails',
+        id: batch.join(',')
+      });
+      
+      if (response.data.items) {
+        for (const channel of response.data.items) {
+          const channelData = await processChannelData(youtubeClient, channel, filterConfig);
+          if (channelData) {
+            validChannels.push(channelData);
+          }
+        }
+      }
+      
+      // API制限対策
+      await sleep(100);
+      
+    } catch (error) {
+      console.warn(`チャンネル詳細取得エラー (バッチ ${i}-${i + batchSize}):`, error.message);
+    }
+  }
+  
+  return validChannels;
+}
+
+/**
+ * 個別チャンネルデータ処理
+ */
+async function processChannelData(youtubeClient, channel, filterConfig) {
+  try {
+    const snippet = channel.snippet;
+    const statistics = channel.statistics;
+    
+    // 基本データ抽出
+    const channelData = {
+      channelId: channel.id,
+      channelTitle: snippet.title,
+      description: snippet.description || '',
+      thumbnailUrl: snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url,
+      channelUrl: `https://www.youtube.com/channel/${channel.id}`,
+      subscriberCount: parseInt(statistics.subscriberCount) || 0,
+      videoCount: parseInt(statistics.videoCount) || 0,
+      totalViews: parseInt(statistics.viewCount) || 0,
+      publishedAt: snippet.publishedAt,
+      uploadsPlaylistId: channel.contentDetails?.relatedPlaylists?.uploads
+    };
+    
+    // BGMフィルタリング
+    if (!isBGMChannel(channelData.channelTitle, channelData.description)) {
+      return null;
+    }
+    
+    // 基本条件フィルタリング
+    if (!passesBasicFilters(channelData, filterConfig)) {
+      return null;
+    }
+    
+    // 最初の動画を取得して成長率計算
+    const firstVideo = await getChannelFirstVideo(channelData.uploadsPlaylistId, youtubeClient);
+    const growthRate = calculateGrowthRate(channelData.subscriberCount, 
+      firstVideo?.publishedAt || channelData.publishedAt);
+    
+    // 成長率フィルタ
+    if (growthRate < filterConfig.minGrowthRate) {
+      return null;
+    }
+    
+    return {
+      ...channelData,
+      firstVideoDate: firstVideo?.publishedAt || channelData.publishedAt,
+      growthRate,
+      scoreBgmRelev: calculateBGMRelevanceScore(channelData.channelTitle, channelData.description)
+    };
+    
+  } catch (error) {
+    console.warn(`チャンネルデータ処理エラー (${channel.id}):`, error.message);
+    return null;
+  }
+}
+
+/**
+ * BGMチャンネル判定
+ */
+function isBGMChannel(title, description) {
+  const bgmKeywords = [
+    'BGM', 'instrumental', 'background music', 'ambient', 'lo-fi', 'lofi',
+    'chill', 'relaxing', 'study music', 'meditation', 'sleep music',
+    'インスト', 'インストゥルメンタル', 'ヒーリング', 'リラックス',
+    '作業用', '勉強用', '睡眠用', '瞑想', 'アンビエント'
+  ];
+  
+  const exclusionKeywords = [
+    'lyrics', '歌詞', 'vocal', 'sing', 'singing', 'song', 'rap', 'talk', 'podcast',
+    'ボーカル', '歌', '歌い手', 'トーク', 'ラップ'
+  ];
+  
+  const text = `${title} ${description}`.toLowerCase();
+  
+  // 除外キーワードチェック
+  for (const keyword of exclusionKeywords) {
+    if (text.includes(keyword.toLowerCase())) {
+      return false;
+    }
+  }
+  
+  // BGMキーワードチェック
+  for (const keyword of bgmKeywords) {
+    if (text.includes(keyword.toLowerCase())) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * 基本フィルタリング
+ */
+function passesBasicFilters(channelData, config) {
+  // 登録者数チェック
+  if (channelData.subscriberCount < config.minSubscribers || 
+      channelData.subscriberCount > config.maxSubscribers) {
+    return false;
+  }
+  
+  // 動画数チェック
+  if (channelData.videoCount < config.minVideos) {
+    return false;
+  }
+  
+  // チャンネル作成日チェック
+  const channelAge = (Date.now() - new Date(channelData.publishedAt)) / (1000 * 60 * 60 * 24 * 30);
+  if (channelAge > config.monthsThreshold) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * BGM関連度スコア計算
+ */
+function calculateBGMRelevanceScore(title, description) {
+  let score = 0;
+  const text = `${title} ${description}`.toLowerCase();
+  
+  const highValueKeywords = ['bgm', 'instrumental', 'ambient', 'lo-fi', 'lofi'];
+  const mediumValueKeywords = ['chill', 'relaxing', 'study music', 'meditation'];
+  
+  highValueKeywords.forEach(keyword => {
+    if (text.includes(keyword)) score += 20;
+  });
+  
+  mediumValueKeywords.forEach(keyword => {
+    if (text.includes(keyword)) score += 10;
+  });
+  
+  return Math.min(score, 100);
+}
+
+/**
+ * 非同期待機関数
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * カスタムAPIキー用のチャンネル最初の動画取得
+ */
+async function getChannelFirstVideo(uploadsPlaylistId, youtubeClient) {
+  if (!uploadsPlaylistId) return null;
+  
+  try {
+    // プレイリストの最後のページから取得（古い動画から）
+    let oldestVideo = null;
+    let nextPageToken = '';
+    let pageCount = 0;
+    const maxPages = 10;
+    
+    do {
+      const params = {
+        part: 'snippet',
+        playlistId: uploadsPlaylistId,
+        maxResults: 50
+      };
+      
+      if (nextPageToken) {
+        params.pageToken = nextPageToken;
+      }
+      
+      const response = await youtubeClient.playlistItems.list(params);
+      
+      if (response.data.items && response.data.items.length > 0) {
+        for (const item of response.data.items) {
+          const publishedAt = new Date(item.snippet.publishedAt);
+          if (!oldestVideo || publishedAt < new Date(oldestVideo.publishedAt)) {
+            oldestVideo = {
+              title: item.snippet.title,
+              publishedAt: item.snippet.publishedAt,
+              videoId: item.snippet.resourceId.videoId
+            };
+          }
+        }
+      }
+      
+      nextPageToken = response.data.nextPageToken;
+      pageCount++;
+      
+      // API制限対策
+      await sleep(100);
+      
+    } while (nextPageToken && pageCount < maxPages);
+    
+    return oldestVideo;
+    
+  } catch (error) {
+    console.warn('最初の動画取得エラー:', error.message);
+    return null;
   }
 }

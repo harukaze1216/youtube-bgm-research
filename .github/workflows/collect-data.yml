@@ -1,11 +1,11 @@
-name: Collect BGM Channel Data
+name: Collect BGM Channel Data (Legacy)
 
 on:
-  # 毎日午前9時（UTC）に実行
-  schedule:
-    - cron: '0 9 * * *'
+  # 旧ワークフローは無効化し、手動実行のみ許可
+  # schedule:
+  #   - cron: '0 9 * * *'
   
-  # 手動実行も可能
+  # 手動実行のみ有効（テスト用）
   workflow_dispatch:
     inputs:
       keywords_count:

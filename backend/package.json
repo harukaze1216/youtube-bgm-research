@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "collect": "node collect-channels.js",
+    "collect-batch": "node user-batch-collector.js",
     "smart-collect": "node smart-collect.js",
     "enhanced-collect": "node enhanced-collection.js",
     "track": "node track-channels.js",

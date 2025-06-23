@@ -1,0 +1,254 @@
+name: User Batch BGM Collection
+
+on:
+  # 毎日午前9時（UTC）に実行
+  schedule:
+    - cron: '0 9 * * *'
+  
+  # 手動実行も可能
+  workflow_dispatch:
+    inputs:
+      max_batches:
+        description: 'Maximum number of batches to process'
+        required: false
+        default: '10'
+        type: number
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "user-batch-collection"
+  cancel-in-progress: false
+
+jobs:
+  # ステップ1: アクティブユーザー数を取得してバッチ数を決定
+  determine-batches:
+    runs-on: ubuntu-latest
+    outputs:
+      batch-count: ${{ steps.count.outputs.batch-count }}
+      total-users: ${{ steps.count.outputs.total-users }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Count active users and determine batches
+      id: count
+      run: |
+        cd backend
+        
+        # ユーザー数を取得するスクリプトを実行
+        node -e "
+        import { getActiveUsers, splitIntoBatches } from './user-batch-collector.js';
+        
+        async function main() {
+          try {
+            const users = await getActiveUsers();
+            const batches = splitIntoBatches(users, 3);
+            const maxBatches = ${{ github.event.inputs.max_batches || 10 }};
+            const batchCount = Math.min(batches.length, maxBatches);
+            
+            console.log(\`Active users: \${users.length}\`);
+            console.log(\`Total batches: \${batches.length}\`);
+            console.log(\`Processing batches: \${batchCount}\`);
+            
+            console.log(\`::set-output name=batch-count::\${batchCount}\`);
+            console.log(\`::set-output name=total-users::\${users.length}\`);
+          } catch (error) {
+            console.error('Error:', error);
+            console.log('::set-output name=batch-count::0');
+            console.log('::set-output name=total-users::0');
+          }
+        }
+        
+        main();
+        "
+      env:
+        FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+
+  # ステップ2: バッチ並列処理
+  collect-user-batches:
+    runs-on: ubuntu-latest
+    needs: determine-batches
+    if: needs.determine-batches.outputs.batch-count > 0
+    
+    strategy:
+      matrix:
+        batch-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # 最大10バッチまで対応
+      max-parallel: 3  # 適度な並列度でAPI制限を回避
+      fail-fast: false  # 1つのバッチが失敗しても他を継続
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Check if batch should run
+      id: should-run
+      run: |
+        batch_count=${{ needs.determine-batches.outputs.batch-count }}
+        current_batch=${{ matrix.batch-index }}
+        
+        if [ $current_batch -lt $batch_count ]; then
+          echo "should_run=true" >> $GITHUB_OUTPUT
+          echo "✅ Batch $current_batch will be processed (total: $batch_count)"
+        else
+          echo "should_run=false" >> $GITHUB_OUTPUT
+          echo "⏭️ Batch $current_batch skipped (total: $batch_count)"
+        fi
+        
+    - name: Process user batch ${{ matrix.batch-index }}
+      id: collection
+      if: steps.should-run.outputs.should_run == 'true'
+      run: |
+        cd backend
+        
+        echo "🚀 Processing batch ${{ matrix.batch-index }}"
+        
+        # バッチ処理を実行
+        if npm run collect-batch ${{ matrix.batch-index }}; then
+          echo "✅ Batch ${{ matrix.batch-index }} completed successfully"
+          echo "success=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Batch ${{ matrix.batch-index }} failed"
+          echo "success=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+      env:
+        FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        LOG_LEVEL: info
+        
+    - name: Create batch report
+      if: always() && steps.should-run.outputs.should_run == 'true'
+      run: |
+        cd backend
+        
+        echo "Batch ${{ matrix.batch-index }} Report" > batch-${{ matrix.batch-index }}-report.txt
+        echo "==============================" >> batch-${{ matrix.batch-index }}-report.txt
+        echo "Execution time: $(date)" >> batch-${{ matrix.batch-index }}-report.txt
+        echo "Status: ${{ steps.collection.outputs.success == 'true' && 'SUCCESS' || 'FAILED' }}" >> batch-${{ matrix.batch-index }}-report.txt
+        echo "" >> batch-${{ matrix.batch-index }}-report.txt
+        
+        # 簡単な統計を追加
+        echo "Collection Statistics:" >> batch-${{ matrix.batch-index }}-report.txt
+        echo "- Batch Index: ${{ matrix.batch-index }}" >> batch-${{ matrix.batch-index }}-report.txt
+        echo "- Total Users: ${{ needs.determine-batches.outputs.total-users }}" >> batch-${{ matrix.batch-index }}-report.txt
+        echo "- Total Batches: ${{ needs.determine-batches.outputs.batch-count }}" >> batch-${{ matrix.batch-index }}-report.txt
+        
+    - name: Upload batch report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: batch-${{ matrix.batch-index }}-report
+        path: backend/batch-${{ matrix.batch-index }}-report.txt
+        retention-days: 7
+
+  # ステップ3: 結果の統合とサマリー
+  summarize-results:
+    runs-on: ubuntu-latest
+    needs: [determine-batches, collect-user-batches]
+    if: always() && needs.determine-batches.outputs.batch-count > 0
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Download all batch reports
+      uses: actions/download-artifact@v4
+      with:
+        path: reports/
+        pattern: batch-*-report
+        
+    - name: Create consolidated report
+      run: |
+        echo "🎵 User Batch Collection Summary" > collection-summary.txt
+        echo "======================================" >> collection-summary.txt
+        echo "Execution Date: $(date)" >> collection-summary.txt
+        echo "Total Users: ${{ needs.determine-batches.outputs.total-users }}" >> collection-summary.txt
+        echo "Total Batches: ${{ needs.determine-batches.outputs.batch-count }}" >> collection-summary.txt
+        echo "" >> collection-summary.txt
+        
+        # 各バッチの結果をまとめる
+        echo "Batch Results:" >> collection-summary.txt
+        echo "-------------" >> collection-summary.txt
+        
+        successful_batches=0
+        failed_batches=0
+        
+        for report_dir in reports/batch-*-report/; do
+          if [ -d "$report_dir" ]; then
+            batch_num=$(echo "$report_dir" | grep -o 'batch-[0-9]*' | grep -o '[0-9]*')
+            if [ -f "$report_dir/batch-${batch_num}-report.txt" ]; then
+              echo "Batch ${batch_num}:" >> collection-summary.txt
+              if grep -q "SUCCESS" "$report_dir/batch-${batch_num}-report.txt"; then
+                echo "  Status: ✅ SUCCESS" >> collection-summary.txt
+                successful_batches=$((successful_batches + 1))
+              else
+                echo "  Status: ❌ FAILED" >> collection-summary.txt
+                failed_batches=$((failed_batches + 1))
+              fi
+            fi
+          fi
+        done
+        
+        echo "" >> collection-summary.txt
+        echo "Summary:" >> collection-summary.txt
+        echo "  Successful Batches: ${successful_batches}" >> collection-summary.txt
+        echo "  Failed Batches: ${failed_batches}" >> collection-summary.txt
+        echo "  Success Rate: $(( successful_batches * 100 / (successful_batches + failed_batches) ))%" >> collection-summary.txt
+        
+        echo "" >> collection-summary.txt
+        echo "ℹ️ Individual batch reports are available as artifacts" >> collection-summary.txt
+        
+        # サマリーを表示
+        cat collection-summary.txt
+        
+    - name: Upload consolidated report
+      uses: actions/upload-artifact@v4
+      with:
+        name: collection-summary
+        path: collection-summary.txt
+        retention-days: 30
+        
+    - name: Check overall success
+      run: |
+        # 少なくとも50%のバッチが成功していれば全体として成功とみなす
+        successful_batches=$(grep -o "✅ SUCCESS" collection-summary.txt | wc -l)
+        total_batches=${{ needs.determine-batches.outputs.batch-count }}
+        success_rate=$((successful_batches * 100 / total_batches))
+        
+        echo "Success rate: ${success_rate}%"
+        
+        if [ $success_rate -ge 50 ]; then
+          echo "✅ Overall collection considered successful (${success_rate}% success rate)"
+          exit 0
+        else
+          echo "❌ Overall collection failed (${success_rate}% success rate)"
+          exit 1
+        fi
