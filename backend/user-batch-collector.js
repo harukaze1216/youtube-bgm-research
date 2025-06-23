@@ -32,7 +32,7 @@ async function getActiveUsers() {
         const settingsDoc = await db.collection('users').doc(userDoc.id)
           .collection('settings').doc('config').get();
         
-        if (settingsDoc.exists()) {
+        if (settingsDoc.exists) {
           const settings = settingsDoc.data();
           console.log(`⚙️ ユーザー ${userDoc.id} の設定が見つかりました`);
           console.log(`🔑 APIキー: ${settings.youtubeApiKey ? settings.youtubeApiKey.substring(0, 10) + '...' : 'なし'}`);
