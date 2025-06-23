@@ -45,40 +45,25 @@ const Header = ({ currentView, onViewChange }) => {
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* メインヘッダー */}
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mr-8">
-              🎵 YouTube BGMチャンネル分析
+          <div className="flex items-center min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
+              🎵 YouTube BGM分析
             </h1>
-            
-            <nav className="flex space-x-1">
-              {navItems.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => onViewChange(item.id)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    currentView === item.id
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <span className="mr-2">{item.icon}</span>
-                  {item.label}
-                </button>
-              ))}
-            </nav>
           </div>
           
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600 dark:text-gray-300">
-              👤 {user?.email}
+          {/* ユーザー情報とアクション */}
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 hidden sm:block truncate max-w-32">
+              {user?.email}
             </span>
             <button
               onClick={() => setShowIssueForm(true)}
-              className="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
               title="不具合・要望を報告"
             >
-              🐛 フィードバック
+              🐛
             </button>
             <button
               onClick={toggleTheme}
@@ -89,12 +74,32 @@ const Header = ({ currentView, onViewChange }) => {
             </button>
             <button
               onClick={logout}
-              className="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
               title="ログアウト"
             >
-              🚪 ログアウト
+              🚪
             </button>
           </div>
+        </div>
+        
+        {/* タブナビゲーション */}
+        <div className="border-t border-gray-200 dark:border-gray-700">
+          <nav className="flex space-x-0 overflow-x-auto">
+            {navItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => onViewChange(item.id)}
+                className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  currentView === item.id
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <span className="mr-2">{item.icon}</span>
+                <span className="whitespace-nowrap">{item.label}</span>
+              </button>
+            ))}
+          </nav>
         </div>
       </div>
       
