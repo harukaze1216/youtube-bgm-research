@@ -22,27 +22,38 @@ async function getActiveUsers() {
     const usersSnapshot = await db.collection('users').get();
     const activeUsers = [];
     
+    console.log(`📊 見つかったユーザー数: ${usersSnapshot.docs.length}`);
+    
     for (const userDoc of usersSnapshot.docs) {
       try {
+        console.log(`🔍 ユーザー ${userDoc.id} をチェック中...`);
+        
         // ユーザーの設定をチェック
         const settingsDoc = await db.collection('users').doc(userDoc.id)
           .collection('settings').doc('config').get();
         
         if (settingsDoc.exists()) {
           const settings = settingsDoc.data();
+          console.log(`⚙️ ユーザー ${userDoc.id} の設定が見つかりました`);
+          console.log(`🔑 APIキー: ${settings.youtubeApiKey ? settings.youtubeApiKey.substring(0, 10) + '...' : 'なし'}`);
           
           // APIキーが設定されているユーザーのみ対象
           if (settings.youtubeApiKey && 
               settings.youtubeApiKey.startsWith('AIza') && 
               settings.youtubeApiKey.length >= 35) {
             
+            console.log(`✅ ユーザー ${userDoc.id} をアクティブユーザーとして追加`);
             activeUsers.push({
               uid: userDoc.id,
               email: userDoc.data().email || 'unknown',
               apiKey: settings.youtubeApiKey,
               settings: settings
             });
+          } else {
+            console.log(`❌ ユーザー ${userDoc.id} のAPIキーが無効: ${settings.youtubeApiKey ? '形式不正' : '未設定'}`);
           }
+        } else {
+          console.log(`❌ ユーザー ${userDoc.id} の設定ドキュメントが見つかりません`);
         }
       } catch (error) {
         console.warn(`⚠️ ユーザー ${userDoc.id} の設定取得エラー:`, error.message);
