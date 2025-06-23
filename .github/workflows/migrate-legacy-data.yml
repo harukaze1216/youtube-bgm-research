@@ -1,0 +1,72 @@
+name: Migrate Legacy Data
+
+on:
+  # 手動実行のみ（安全のため）
+  workflow_dispatch:
+    inputs:
+      target_user_id:
+        description: 'Target User ID for migration'
+        required: true
+        default: 'aLb81rrXbdPfZj2BL4Jb64osrwq2'
+        type: string
+      confirm_migration:
+        description: 'Type "MIGRATE" to confirm'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  migrate-data:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_migration == 'MIGRATE'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Run legacy data migration
+      run: |
+        cd backend
+        
+        echo "🚀 Starting legacy data migration"
+        echo "Target User ID: ${{ github.event.inputs.target_user_id }}"
+        
+        # 移行スクリプトを実行
+        node migrate-legacy-data.js
+      env:
+        FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        TARGET_USER_ID: ${{ github.event.inputs.target_user_id }}
+        
+    - name: Create migration report
+      if: always()
+      run: |
+        cd backend
+        echo "Legacy Data Migration Report" > migration-report.txt
+        echo "============================" >> migration-report.txt
+        echo "Execution Date: $(date)" >> migration-report.txt
+        echo "Target User ID: ${{ github.event.inputs.target_user_id }}" >> migration-report.txt
+        echo "" >> migration-report.txt
+        echo "Migration completed. Check logs for details." >> migration-report.txt
+        
+    - name: Upload migration report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: migration-report
+        path: backend/migration-report.txt
+        retention-days: 30
