@@ -10,7 +10,7 @@ async function getUserApiKey(userId) {
   }
   
   try {
-    const settingsDoc = await getDoc(doc(db, 'settings', userId));
+    const settingsDoc = await getDoc(doc(db, 'users', userId, 'settings', 'config'));
     if (!settingsDoc.exists()) {
       throw new Error('⚠️ 設定が見つかりません。\n\n📋 対処法：\n1. 画面右上の「設定」タブをクリック\n2. YouTube APIキーを入力して保存\n3. 再度お試しください');
     }
@@ -176,9 +176,9 @@ export async function fetchChannelFirstVideo(uploadsPlaylistId, userId) {
 /**
  * チャンネルが既に存在するかチェック
  */
-export async function checkChannelExists(channelId) {
+export async function checkChannelExists(channelId, userId) {
   try {
-    const channelsRef = collection(db, 'bgm_channels');
+    const channelsRef = collection(db, 'users', userId, 'channels');
     const q = query(channelsRef, where('channelId', '==', channelId));
     const querySnapshot = await getDocs(q);
     return !querySnapshot.empty;
@@ -386,10 +386,10 @@ export function calculateGrowthRate(channelInfo, firstVideo) {
  */
 export async function addChannelToFirestore(channelData, userId) {
   try {
-    const channelsRef = collection(db, 'bgm_channels');
+    const channelsRef = collection(db, 'users', userId, 'channels');
     await addDoc(channelsRef, {
       ...channelData,
-      userId: userId,
+      status: 'unset',
       createdAt: new Date(),
       addedManually: true
     });
@@ -425,9 +425,9 @@ export async function markChannelAsViewed(channelDocId) {
  * @param {string} reason - ステータス変更理由（オプション）
  * @returns {Promise<boolean>} 更新成功時true
  */
-export async function updateChannelStatus(channelId, status, reason = null) {
+export async function updateChannelStatus(channelId, status, userId, reason = null) {
   try {
-    const channelRef = doc(db, 'bgm_channels', channelId);
+    const channelRef = doc(db, 'users', userId, 'channels', channelId);
     
     const updateData = {
       status: status,
@@ -456,12 +456,11 @@ export async function updateChannelStatus(channelId, status, reason = null) {
  */
 export async function getChannelsByStatus(status = 'all', userId, additionalFilters = {}) {
   try {
-    let q = collection(db, 'bgm_channels');
-    
-    // ユーザーIDでフィルタリング
-    if (userId) {
-      q = query(q, where('userId', '==', userId));
+    if (!userId) {
+      throw new Error('ユーザーIDが必要です');
     }
+    
+    let q = collection(db, 'users', userId, 'channels');
     
     // ステータスフィルター（unsetと'all'の場合は全件取得してからフィルタリング）
     if (status !== 'all' && status !== 'unset') {
@@ -503,6 +502,52 @@ export async function getChannelsByStatus(status = 'all', userId, additionalFilt
  * Firestoreからチャンネル一覧を取得（フィルタ対応）
  * @param {Object} filters - フィルタ条件
  */
+// ユーザー固有のチャンネルを取得
+export async function getChannels(userId) {
+  if (!userId) {
+    throw new Error('ユーザーIDが必要です');
+  }
+  
+  try {
+    const q = query(
+      collection(db, 'users', userId, 'channels'),
+      orderBy('growthRate', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('チャンネル取得エラー:', error);
+    throw error;
+  }
+}
+
+// トラッキング中のチャンネルを取得
+export async function getTrackedChannels(userId) {
+  if (!userId) {
+    throw new Error('ユーザーIDが必要です');
+  }
+  
+  try {
+    const q = query(
+      collection(db, 'users', userId, 'channels'),
+      where('status', '==', 'tracking')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('トラッキングチャンネル取得エラー:', error);
+    throw error;
+  }
+}
+
 export async function getChannelsFromFirestore(filters = {}) {
   try {
     let q = collection(db, 'bgm_channels');

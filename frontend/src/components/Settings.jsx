@@ -3,7 +3,6 @@ import { doc, getDoc, setDoc, collection, getDocs, query, where } from 'firebase
 import { db } from '../firebase';
 import { setGitHubToken, hasGitHubToken, validateGitHubToken } from '../services/githubService';
 import { useAuth } from '../contexts/AuthContext';
-import { migrateAllData } from '../utils/migrate-data';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -61,7 +60,7 @@ const Settings = () => {
     
     try {
       // ユーザー固有の設定を読み込み
-      const settingsDoc = await getDoc(doc(db, 'settings', user.uid));
+      const settingsDoc = await getDoc(doc(db, 'users', user.uid, 'settings', 'config'));
       if (settingsDoc.exists()) {
         setSettings(prev => ({ ...prev, ...settingsDoc.data() }));
       }
@@ -104,8 +103,8 @@ const Settings = () => {
       const settingsToSave = { ...settings };
       delete settingsToSave.githubToken;
       
-      // ユーザー固有のドキュメントIDで保存
-      await setDoc(doc(db, 'settings', user.uid), settingsToSave);
+      // ユーザーサブコレクションに保存
+      await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), settingsToSave);
       
       if (!settings.githubToken || settings.githubToken === '●●●●●●●●●●●●') {
         setMessage('設定を保存しました');
@@ -125,12 +124,8 @@ const Settings = () => {
     
     try {
       // ユーザー固有のチャンネルデータとトラッキングデータを取得
-      const channelsSnapshot = await getDocs(
-        query(collection(db, 'bgm_channels'), where('userId', '==', user.uid))
-      );
-      const trackingSnapshot = await getDocs(
-        query(collection(db, 'tracking_data'), where('userId', '==', user.uid))
-      );
+      const channelsSnapshot = await getDocs(collection(db, 'users', user.uid, 'channels'));
+      const trackingSnapshot = await getDocs(collection(db, 'users', user.uid, 'trackingData'));
       
       const channels = channelsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       const tracking = trackingSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -189,42 +184,6 @@ const Settings = () => {
     URL.revokeObjectURL(url);
   };
 
-  const migrateUserData = async () => {
-    const confirmed = confirm(
-      '既存のデータをユーザー aLb81rrXbdPfZj2BL4Jb64osrwq2 に移行します。\n\n' +
-      'この操作は取り消せません。続行しますか？'
-    );
-    
-    if (!confirmed) return;
-    
-    try {
-      setSaving(true);
-      setMessage('データ移行を実行中...');
-      
-      const result = await migrateAllData();
-      
-      if (result.success) {
-        const totalMigrated = result.results.bgm.updated + 
-                             result.results.tracked.updated + 
-                             result.results.tracking.updated;
-        
-        setMessage(
-          `✅ データ移行が完了しました！\n` +
-          `移行件数: ${totalMigrated}件\n` +
-          `実行時間: ${result.duration.toFixed(2)}秒`
-        );
-      } else {
-        setMessage(`❌ 移行エラー: ${result.error}`);
-      }
-      
-      setTimeout(() => setMessage(''), 10000);
-    } catch (error) {
-      console.error('データ移行エラー:', error);
-      setMessage('データ移行に失敗しました: ' + error.message);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const addKeyword = (type) => {
     const input = prompt(`新しい${type === 'search' ? '検索' : type === 'bgm' ? 'BGM' : '除外'}キーワードを入力してください:`);
@@ -713,19 +672,6 @@ const Settings = () => {
                     </div>
                   </div>
                   
-                  <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
-                    <h3 className="font-medium text-gray-900 mb-2">🔧 レガシーデータ移行</h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      既存のデータを指定ユーザー(aLb81rrXbdPfZj2BL4Jb64osrwq2)に移行します。
-                      <strong>※この操作は一度のみ実行してください。</strong>
-                    </p>
-                    <button
-                      onClick={migrateUserData}
-                      className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
-                    >
-                      データ移行を実行
-                    </button>
-                  </div>
 
                   <div className="border border-gray-200 rounded-lg p-4">
                     <h3 className="font-medium text-gray-900 mb-2">データバックアップ</h3>

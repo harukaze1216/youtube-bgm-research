@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { markChannelAsViewed } from '../services/channelService';
-import ChannelStatusActions from './ChannelStatusActions';
+import ChannelStatusManager from './ChannelStatusManager';
 
 const ChannelCard = ({ channel, onChannelClick, onAddToTracking, onStatusChange }) => {
+  const { user } = useAuth();
   const [isViewed, setIsViewed] = useState(channel.isViewed || false);
   const formatNumber = (num) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -113,14 +115,11 @@ const ChannelCard = ({ channel, onChannelClick, onAddToTracking, onStatusChange 
               成長率 {channel.growthRate || 0}%
             </span>
             
-            <div className="flex gap-2">
-              <ChannelStatusActions 
+            <div className="flex gap-2 items-center">
+              <ChannelStatusManager 
                 channel={channel}
-                onStatusChange={onStatusChange || (async (channelId, status, reason) => {
-                  const { updateChannelStatus } = await import('../services/channelService');
-                  await updateChannelStatus(channelId, status, reason);
-                  window.location.reload();
-                })}
+                userId={user?.uid}
+                onStatusChange={onStatusChange}
               />
               
               <button

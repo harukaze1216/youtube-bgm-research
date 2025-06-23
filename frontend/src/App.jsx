@@ -11,6 +11,9 @@ import ChannelModal from './components/ChannelModal';
 import Settings from './components/Settings';
 import TrackingDashboard from './components/TrackingDashboard';
 import ChannelHistory from './components/ChannelHistory';
+import UserProfile from './components/UserProfile';
+import AddChannelModal from './components/AddChannelModal';
+import FeedbackModal from './components/FeedbackModal';
 import LoginForm from './components/Auth/LoginForm';
 
 function AppContent() {
@@ -24,6 +27,8 @@ function AppContent() {
   const [trackedChannels, setTrackedChannels] = useState(new Set());
   const [currentView, setCurrentView] = useState('channels');
   const [selectedChannelForTracking, setSelectedChannelForTracking] = useState(null);
+  const [showAddChannelModal, setShowAddChannelModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [filters, setFilters] = useState({
     sortBy: 'growth_rate',
     filterBy: 'unset', // デフォルトを未仕分けに変更
@@ -94,16 +99,10 @@ function AppContent() {
     if (!user) return; // ユーザーが認証されていない場合は何もしない
     
     try {
-      const trackedChannelsQuery = query(
-        collection(db, 'tracked_channels'),
-        where('userId', '==', user.uid)
-      );
-      const querySnapshot = await getDocs(trackedChannelsQuery);
-      const trackedIds = new Set(
-        querySnapshot.docs
-          .filter(doc => doc.data().isActive)
-          .map(doc => doc.id)
-      );
+      const { getTrackedChannels } = await import('./services/channelService');
+      const trackedChannelsData = await getTrackedChannels(user.uid);
+      
+      const trackedIds = new Set(trackedChannelsData.map(ch => ch.channelId));
       setTrackedChannels(trackedIds);
     } catch (error) {
       console.error('追跡チャンネルデータの読み込みエラー:', error);
@@ -370,10 +369,16 @@ function AppContent() {
     );
   }
 
+  const handleChannelAdded = () => {
+    loadChannels(); // チャンネル追加後にリストを更新
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case 'settings':
         return <Settings />;
+      case 'profile':
+        return <UserProfile />;
       case 'tracking':
         return <TrackingDashboard selectedChannelId={selectedChannelForTracking} />;
       case 'history':
@@ -381,6 +386,26 @@ function AppContent() {
       default:
         return (
           <>
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                チャンネル管理
+              </h1>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowAddChannelModal(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  + 手動追加
+                </button>
+                <button
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                >
+                  📝 フィードバック
+                </button>
+              </div>
+            </div>
+            
             <SearchSection onAddChannel={handleAddChannel} />
             
             <FilterSection 
@@ -396,7 +421,7 @@ function AppContent() {
               onAddToTracking={handleAddToTracking}
               onStatusChange={async (channelId, status, reason) => {
                 const { updateChannelStatus } = await import('./services/channelService');
-                await updateChannelStatus(channelId, status, reason);
+                await updateChannelStatus(channelId, status, user.uid, reason);
                 await loadChannels(); // データを再読み込み
               }}
             />
@@ -421,6 +446,17 @@ function AppContent() {
         isOpen={!!selectedChannel}
         onClose={closeModal}
         onRemove={handleRemoveChannel}
+      />
+      
+      <AddChannelModal
+        isOpen={showAddChannelModal}
+        onClose={() => setShowAddChannelModal(false)}
+        onChannelAdded={handleChannelAdded}
+      />
+      
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
       />
     </div>
   );

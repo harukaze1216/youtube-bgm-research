@@ -39,6 +39,7 @@ const Header = ({ currentView, onViewChange }) => {
     { id: 'channels', label: 'チャンネル一覧', icon: '🎵' },
     { id: 'tracking', label: 'トラッキング', icon: '📈' },
     { id: 'history', label: '履歴', icon: '📋' },
+    { id: 'profile', label: 'プロフィール', icon: '👤' },
     { id: 'settings', label: '設定', icon: '⚙️' }
   ];
 
