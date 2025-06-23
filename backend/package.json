@@ -11,6 +11,7 @@
     "smart-collect": "node smart-collect.js",
     "enhanced-collect": "node enhanced-collection.js",
     "track": "node track-channels.js",
+    "track-batch": "node user-batch-tracking.js",
     "fetch": "node manual-fetch.js",
     "quota": "node -e \"import('./quota-monitor.js').then(m => m.displayQuotaStatus())\"",
     "dev": "node --watch index.js",

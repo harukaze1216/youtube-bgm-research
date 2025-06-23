@@ -1,0 +1,289 @@
+name: User Batch Tracking Update
+
+on:
+  # 毎週日曜日の午前10時（UTC）に実行
+  schedule:
+    - cron: '0 10 * * 0'
+  
+  # 手動実行も可能
+  workflow_dispatch:
+    inputs:
+      max_batches:
+        description: 'Maximum number of batches to process'
+        required: false
+        default: '10'
+        type: number
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "user-batch-tracking"
+  cancel-in-progress: false
+
+jobs:
+  # ステップ1: アクティブトラッキングユーザー数を取得してバッチ数を決定
+  determine-tracking-batches:
+    runs-on: ubuntu-latest
+    outputs:
+      batch-count: ${{ steps.count.outputs.batch-count }}
+      total-users: ${{ steps.count.outputs.total-users }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Count active tracking users and determine batches
+      id: count
+      run: |
+        cd backend
+        
+        # ユーザー数カウントスクリプトを実行（トラッキング用）
+        output=$(node -e "
+          import('./user-batch-tracking.js').then(async (module) => {
+            // アクティブトラッキングユーザーを取得する部分を実行
+            try {
+              const { db } = await import('./firebase-config.js');
+              
+              const usersSnapshot = await db.collection('users').get();
+              let activeUsers = 0;
+              
+              for (const userDoc of usersSnapshot.docs) {
+                try {
+                  const settingsDoc = await db.collection('users').doc(userDoc.id)
+                    .collection('settings').doc('config').get();
+                  
+                  if (settingsDoc.exists) {
+                    const settings = settingsDoc.data();
+                    
+                    if (settings.youtubeApiKey && 
+                        settings.youtubeApiKey.startsWith('AIza') && 
+                        settings.youtubeApiKey.length >= 35) {
+                      
+                      const trackingChannels = await db.collection('users').doc(userDoc.id)
+                        .collection('channels')
+                        .where('status', '==', 'tracking')
+                        .get();
+                      
+                      if (trackingChannels.docs.length > 0) {
+                        activeUsers++;
+                      }
+                    }
+                  }
+                } catch (error) {
+                  // 個別ユーザーのエラーは無視
+                }
+              }
+              
+              const batches = Math.ceil(activeUsers / 3);
+              const maxBatches = parseInt(process.env.MAX_BATCHES || '10');
+              const batchCount = Math.min(batches, maxBatches);
+              
+              console.log(\`BATCH_COUNT=\${batchCount}\`);
+              console.log(\`TOTAL_USERS=\${activeUsers}\`);
+              console.log(\`📊 アクティブトラッキングユーザー: \${activeUsers}名\`);
+              console.log(\`📊 作成予定バッチ数: \${batchCount}\`);
+              
+            } catch (error) {
+              console.error('❌ ユーザー数カウントエラー:', error);
+              console.log('BATCH_COUNT=0');
+              console.log('TOTAL_USERS=0');
+              process.exit(1);
+            }
+          });
+        ")
+        echo "$output"
+        
+        # 結果を抽出してGitHub Actionsの出力に設定
+        batch_count=$(echo "$output" | grep "BATCH_COUNT=" | cut -d'=' -f2)
+        total_users=$(echo "$output" | grep "TOTAL_USERS=" | cut -d'=' -f2)
+        
+        # デフォルト値を設定（エラー時）
+        if [ -z "$batch_count" ]; then
+          batch_count=0
+        fi
+        if [ -z "$total_users" ]; then
+          total_users=0
+        fi
+        
+        echo "batch-count=$batch_count" >> $GITHUB_OUTPUT
+        echo "total-users=$total_users" >> $GITHUB_OUTPUT
+        
+        echo "✅ トラッキングバッチ数: $batch_count, 総トラッキングユーザー数: $total_users"
+      env:
+        FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        MAX_BATCHES: ${{ github.event.inputs.max_batches || 10 }}
+
+  # ステップ2: バッチ並列処理でトラッキング更新
+  update-tracking-batches:
+    runs-on: ubuntu-latest
+    needs: determine-tracking-batches
+    if: needs.determine-tracking-batches.outputs.batch-count > 0
+    
+    strategy:
+      matrix:
+        batch-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # 最大10バッチまで対応
+      max-parallel: 2  # トラッキングは少し控えめに並列実行
+      fail-fast: false  # 1つのバッチが失敗しても他を継続
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Check if tracking batch should run
+      id: should-run
+      run: |
+        batch_count=${{ needs.determine-tracking-batches.outputs.batch-count }}
+        current_batch=${{ matrix.batch-index }}
+        
+        if [ $current_batch -lt $batch_count ]; then
+          echo "should_run=true" >> $GITHUB_OUTPUT
+          echo "✅ Tracking Batch $current_batch will be processed (total: $batch_count)"
+        else
+          echo "should_run=false" >> $GITHUB_OUTPUT
+          echo "⏭️ Tracking Batch $current_batch skipped (total: $batch_count)"
+        fi
+        
+    - name: Update tracking data for batch ${{ matrix.batch-index }}
+      id: tracking
+      if: steps.should-run.outputs.should_run == 'true'
+      run: |
+        cd backend
+        
+        echo "📊 Processing tracking batch ${{ matrix.batch-index }}"
+        
+        # バッチトラッキング更新を実行
+        if node user-batch-tracking.js ${{ matrix.batch-index }}; then
+          echo "✅ Tracking Batch ${{ matrix.batch-index }} completed successfully"
+          echo "success=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Tracking Batch ${{ matrix.batch-index }} failed"
+          echo "success=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+      env:
+        FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        LOG_LEVEL: info
+        
+    - name: Create tracking batch report
+      if: always() && steps.should-run.outputs.should_run == 'true'
+      run: |
+        cd backend
+        
+        echo "Tracking Batch ${{ matrix.batch-index }} Report" > tracking-batch-${{ matrix.batch-index }}-report.txt
+        echo "==============================" >> tracking-batch-${{ matrix.batch-index }}-report.txt
+        echo "Execution time: $(date)" >> tracking-batch-${{ matrix.batch-index }}-report.txt
+        echo "Status: ${{ steps.tracking.outputs.success == 'true' && 'SUCCESS' || 'FAILED' }}" >> tracking-batch-${{ matrix.batch-index }}-report.txt
+        echo "" >> tracking-batch-${{ matrix.batch-index }}-report.txt
+        echo "Tracking Statistics:" >> tracking-batch-${{ matrix.batch-index }}-report.txt
+        echo "- Batch Index: ${{ matrix.batch-index }}" >> tracking-batch-${{ matrix.batch-index }}-report.txt
+        echo "- Total Tracking Users: ${{ needs.determine-tracking-batches.outputs.total-users }}" >> tracking-batch-${{ matrix.batch-index }}-report.txt
+        echo "- Total Batches: ${{ needs.determine-tracking-batches.outputs.batch-count }}" >> tracking-batch-${{ matrix.batch-index }}-report.txt
+        
+    - name: Upload tracking batch report
+      if: always() && steps.should-run.outputs.should_run == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: tracking-batch-${{ matrix.batch-index }}-report
+        path: backend/tracking-batch-${{ matrix.batch-index }}-report.txt
+        retention-days: 7
+
+  # ステップ3: トラッキング結果の統合とサマリー
+  summarize-tracking-results:
+    runs-on: ubuntu-latest
+    needs: [determine-tracking-batches, update-tracking-batches]
+    if: always() && needs.determine-tracking-batches.outputs.batch-count > 0
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Download all tracking batch reports
+      uses: actions/download-artifact@v4
+      with:
+        path: reports/
+        pattern: tracking-batch-*-report
+        
+    - name: Create consolidated tracking report
+      run: |
+        echo "📊 User Batch Tracking Summary" > tracking-summary.txt
+        echo "========================================" >> tracking-summary.txt
+        echo "Execution Date: $(date)" >> tracking-summary.txt
+        echo "Total Tracking Users: ${{ needs.determine-tracking-batches.outputs.total-users }}" >> tracking-summary.txt
+        echo "Total Tracking Batches: ${{ needs.determine-tracking-batches.outputs.batch-count }}" >> tracking-summary.txt
+        echo "" >> tracking-summary.txt
+        
+        # 各バッチの結果をまとめる
+        echo "Tracking Batch Results:" >> tracking-summary.txt
+        echo "---------------------" >> tracking-summary.txt
+        
+        successful_batches=0
+        failed_batches=0
+        
+        for report_dir in reports/tracking-batch-*-report/; do
+          if [ -d "$report_dir" ]; then
+            batch_num=$(echo "$report_dir" | grep -o 'tracking-batch-[0-9]*' | grep -o '[0-9]*')
+            if [ -f "$report_dir/tracking-batch-${batch_num}-report.txt" ]; then
+              echo "Tracking Batch ${batch_num}:" >> tracking-summary.txt
+              if grep -q "SUCCESS" "$report_dir/tracking-batch-${batch_num}-report.txt"; then
+                echo "  Status: ✅ SUCCESS" >> tracking-summary.txt
+                successful_batches=$((successful_batches + 1))
+              else
+                echo "  Status: ❌ FAILED" >> tracking-summary.txt
+                failed_batches=$((failed_batches + 1))
+              fi
+            fi
+          fi
+        done
+        
+        echo "" >> tracking-summary.txt
+        echo "Summary:" >> tracking-summary.txt
+        echo "  Successful Tracking Batches: ${successful_batches}" >> tracking-summary.txt
+        echo "  Failed Tracking Batches: ${failed_batches}" >> tracking-summary.txt
+        
+        total_processed=$((successful_batches + failed_batches))
+        if [ $total_processed -gt 0 ]; then
+          success_rate=$((successful_batches * 100 / total_processed))
+          echo "  Success Rate: ${success_rate}%" >> tracking-summary.txt
+        else
+          echo "  Success Rate: 0%" >> tracking-summary.txt
+        fi
+        
+        echo "" >> tracking-summary.txt
+        echo "ℹ️ Individual tracking batch reports are available as artifacts" >> tracking-summary.txt
+        
+        # サマリーを表示
+        cat tracking-summary.txt
+        
+    - name: Upload consolidated tracking report
+      uses: actions/upload-artifact@v4
+      with:
+        name: tracking-summary
+        path: tracking-summary.txt
+        retention-days: 30

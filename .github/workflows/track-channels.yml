@@ -1,11 +1,11 @@
-name: Track Channel Analytics
+name: Track Channel Analytics (Legacy - Disabled)
 
 on:
-  # 毎週日曜日の午前10時（UTC）に実行
-  schedule:
-    - cron: '0 10 * * 0'
+  # 旧ワークフローは無効化し、user-batch-tracking.ymlを使用
+  # schedule:
+  #   - cron: '0 10 * * 0'
   
-  # 手動実行も可能
+  # 手動実行のみ有効（テスト用）
   workflow_dispatch:
 
 jobs:
