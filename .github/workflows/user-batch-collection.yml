@@ -50,35 +50,30 @@ jobs:
       run: |
         cd backend
         
-        # ユーザー数を取得するスクリプトを実行
-        node -e "
-        import { getActiveUsers, splitIntoBatches } from './user-batch-collector.js';
+        # ユーザー数カウントスクリプトを実行
+        output=$(node count-users.js)
+        echo "$output"
         
-        async function main() {
-          try {
-            const users = await getActiveUsers();
-            const batches = splitIntoBatches(users, 3);
-            const maxBatches = ${{ github.event.inputs.max_batches || 10 }};
-            const batchCount = Math.min(batches.length, maxBatches);
-            
-            console.log(\`Active users: \${users.length}\`);
-            console.log(\`Total batches: \${batches.length}\`);
-            console.log(\`Processing batches: \${batchCount}\`);
-            
-            console.log(\`::set-output name=batch-count::\${batchCount}\`);
-            console.log(\`::set-output name=total-users::\${users.length}\`);
-          } catch (error) {
-            console.error('Error:', error);
-            console.log('::set-output name=batch-count::0');
-            console.log('::set-output name=total-users::0');
-          }
-        }
+        # 結果を抽出してGitHub Actionsの出力に設定
+        batch_count=$(echo "$output" | grep "BATCH_COUNT=" | cut -d'=' -f2)
+        total_users=$(echo "$output" | grep "TOTAL_USERS=" | cut -d'=' -f2)
         
-        main();
-        "
+        # デフォルト値を設定（エラー時）
+        if [ -z "$batch_count" ]; then
+          batch_count=0
+        fi
+        if [ -z "$total_users" ]; then
+          total_users=0
+        fi
+        
+        echo "batch-count=$batch_count" >> $GITHUB_OUTPUT
+        echo "total-users=$total_users" >> $GITHUB_OUTPUT
+        
+        echo "✅ バッチ数: $batch_count, 総ユーザー数: $total_users"
       env:
         FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        MAX_BATCHES: ${{ github.event.inputs.max_batches || 10 }}
 
   # ステップ2: バッチ並列処理
   collect-user-batches:
@@ -131,7 +126,7 @@ jobs:
         echo "🚀 Processing batch ${{ matrix.batch-index }}"
         
         # バッチ処理を実行
-        if npm run collect-batch ${{ matrix.batch-index }}; then
+        if node user-batch-collector.js ${{ matrix.batch-index }}; then
           echo "✅ Batch ${{ matrix.batch-index }} completed successfully"
           echo "success=true" >> $GITHUB_OUTPUT
         else
@@ -162,7 +157,7 @@ jobs:
         echo "- Total Batches: ${{ needs.determine-batches.outputs.batch-count }}" >> batch-${{ matrix.batch-index }}-report.txt
         
     - name: Upload batch report
-      if: always()
+      if: always() && steps.should-run.outputs.should_run == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: batch-${{ matrix.batch-index }}-report
@@ -221,7 +216,14 @@ jobs:
         echo "Summary:" >> collection-summary.txt
         echo "  Successful Batches: ${successful_batches}" >> collection-summary.txt
         echo "  Failed Batches: ${failed_batches}" >> collection-summary.txt
-        echo "  Success Rate: $(( successful_batches * 100 / (successful_batches + failed_batches) ))%" >> collection-summary.txt
+        
+        total_processed=$((successful_batches + failed_batches))
+        if [ $total_processed -gt 0 ]; then
+          success_rate=$((successful_batches * 100 / total_processed))
+          echo "  Success Rate: ${success_rate}%" >> collection-summary.txt
+        else
+          echo "  Success Rate: 0%" >> collection-summary.txt
+        fi
         
         echo "" >> collection-summary.txt
         echo "ℹ️ Individual batch reports are available as artifacts" >> collection-summary.txt
@@ -241,6 +243,12 @@ jobs:
         # 少なくとも50%のバッチが成功していれば全体として成功とみなす
         successful_batches=$(grep -o "✅ SUCCESS" collection-summary.txt | wc -l)
         total_batches=${{ needs.determine-batches.outputs.batch-count }}
+        
+        if [ $total_batches -eq 0 ]; then
+          echo "⚠️ No batches were processed"
+          exit 0
+        fi
+        
         success_rate=$((successful_batches * 100 / total_batches))
         
         echo "Success rate: ${success_rate}%"
