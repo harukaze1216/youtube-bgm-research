@@ -550,26 +550,4 @@ export async function getTrackedChannels(userId) {
   }
 }
 
-// ⚠️ 非推奨: 代わりに getChannelsByStatus を使用してください
-export async function getChannelsFromFirestore(filters = {}) {
-  console.warn('getChannelsFromFirestore is deprecated. Use getChannelsByStatus instead.');
-  try {
-    let q = collection(db, 'bgm_channels');
-    
-    // 基本的なクエリにソートを追加
-    const querySnapshot = await getDocs(q);
-    const channels = [];
-    
-    querySnapshot.forEach((doc) => {
-      channels.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-    
-    return channels;
-  } catch (error) {
-    console.error('Error getting channels from Firestore:', error);
-    throw error;
-  }
-}
+// 非推奨関数を削除しました。getChannelsByStatus(status, userId) を使用してください。

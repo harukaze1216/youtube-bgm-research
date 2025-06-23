@@ -250,24 +250,22 @@ function AppContent() {
         return; // 既に追跡中
       }
 
-      // 追跡リストに追加
-      await setDoc(doc(db, 'tracked_channels', channel.channelId), {
+      // 追跡リストに追加（ユーザー固有のサブコレクション）
+      await setDoc(doc(db, 'users', user.uid, 'trackedChannels', channel.channelId), {
         channelId: channel.channelId,
         channelTitle: channel.channelTitle,
         channelUrl: channel.channelUrl,
         thumbnailUrl: channel.thumbnailUrl,
-        userId: user.uid,
         addedAt: new Date(),
         isActive: true
       });
 
-      // 初回トラッキングデータを記録
-      await setDoc(doc(db, 'tracking_data', `${channel.channelId}_${new Date().toISOString().split('T')[0]}`), {
+      // 初回トラッキングデータを記録（ユーザー固有のサブコレクション）
+      await setDoc(doc(db, 'users', user.uid, 'trackingData', `${channel.channelId}_${new Date().toISOString().split('T')[0]}`), {
         channelId: channel.channelId,
         subscriberCount: channel.subscriberCount,
         videoCount: channel.videoCount,
         totalViews: channel.totalViews,
-        userId: user.uid,
         recordedAt: new Date()
       });
 

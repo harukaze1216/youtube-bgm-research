@@ -56,9 +56,8 @@ const TrackingDashboard = ({ selectedChannelId }) => {
       try {
         const querySnapshot = await getDocs(
           query(
-            collection(db, 'tracking_data'),
-            where('channelId', '==', channelId),
-            where('userId', '==', user.uid)
+            collection(db, 'users', user.uid, 'trackingData'),
+            where('channelId', '==', channelId)
           )
         );
         

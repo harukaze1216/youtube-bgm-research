@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getChannelsByStatus } from '../services/channelService';
+import { useAuth } from '../contexts/AuthContext';
 import ChannelCard from './ChannelCard';
 
 const ChannelHistory = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('tracking');
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,17 +15,23 @@ const ChannelHistory = () => {
   });
 
   useEffect(() => {
-    loadChannels();
-  }, [activeTab]);
+    if (user) {
+      loadChannels();
+    }
+  }, [activeTab, user]);
 
   useEffect(() => {
-    loadStats();
-  }, []);
+    if (user) {
+      loadStats();
+    }
+  }, [user]);
 
   const loadChannels = async () => {
+    if (!user) return;
+    
     try {
       setLoading(true);
-      const channelData = await getChannelsByStatus(activeTab);
+      const channelData = await getChannelsByStatus(activeTab, user.uid);
       setChannels(channelData);
     } catch (error) {
       console.error('チャンネル履歴読み込みエラー:', error);
@@ -33,11 +41,13 @@ const ChannelHistory = () => {
   };
 
   const loadStats = async () => {
+    if (!user) return;
+    
     try {
       const [trackingChannels, nonTrackingChannels, rejectedChannels] = await Promise.all([
-        getChannelsByStatus('tracking'),
-        getChannelsByStatus('non-tracking'),
-        getChannelsByStatus('rejected')
+        getChannelsByStatus('tracking', user.uid),
+        getChannelsByStatus('non-tracking', user.uid),
+        getChannelsByStatus('rejected', user.uid)
       ]);
 
       setStats({
@@ -51,8 +61,10 @@ const ChannelHistory = () => {
   };
 
   const handleStatusChange = async (channelId, status, reason) => {
+    if (!user) return;
+    
     const { updateChannelStatus } = await import('../services/channelService');
-    await updateChannelStatus(channelId, status, reason);
+    await updateChannelStatus(channelId, status, reason, user.uid);
     
     // データを再読み込み
     await loadChannels();
@@ -94,6 +106,20 @@ const ChannelHistory = () => {
       minute: '2-digit'
     });
   };
+
+  // ユーザーが認証されていない場合
+  if (!user) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+          チャンネル履歴
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400">
+          チャンネル履歴を表示するにはログインが必要です
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
