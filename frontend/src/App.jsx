@@ -58,23 +58,23 @@ function AppContent() {
       
       switch (filters.filterBy) {
         case 'unset':
-          channelData = await getChannelsByStatus('unset', null);
+          channelData = await getChannelsByStatus('unset', user.uid);
           break;
         case 'tracking':
-          channelData = await getChannelsByStatus('tracking', null);
+          channelData = await getChannelsByStatus('tracking', user.uid);
           break;
         case 'non-tracking':
-          channelData = await getChannelsByStatus('non-tracking', null);
+          channelData = await getChannelsByStatus('non-tracking', user.uid);
           break;
         case 'rejected':
-          channelData = await getChannelsByStatus('rejected', null);
+          channelData = await getChannelsByStatus('rejected', user.uid);
           break;
         case 'all':
-          channelData = await getChannelsByStatus('all', null);
+          channelData = await getChannelsByStatus('all', user.uid);
           break;
         default:
           // デフォルトは未仕分けのチャンネルのみ表示
-          channelData = await getChannelsByStatus('unset', null);
+          channelData = await getChannelsByStatus('unset', user.uid);
           break;
       }
       
@@ -88,8 +88,10 @@ function AppContent() {
 
   const loadTrackedChannels = async () => {
     try {
-      // 一時的に全ユーザーの追跡チャンネルを表示
-      const trackedChannelsQuery = collection(db, 'tracked_channels');
+      const trackedChannelsQuery = query(
+        collection(db, 'tracked_channels'),
+        where('userId', '==', user.uid)
+      );
       const querySnapshot = await getDocs(trackedChannelsQuery);
       const trackedIds = new Set(
         querySnapshot.docs
@@ -199,7 +201,7 @@ function AppContent() {
       };
       
       // Firestoreに保存
-      await addChannelToFirestore(channelData, null);
+      await addChannelToFirestore(channelData, user.uid);
       
       // チャンネル一覧を更新
       await loadChannels();
@@ -249,7 +251,7 @@ function AppContent() {
         channelTitle: channel.channelTitle,
         channelUrl: channel.channelUrl,
         thumbnailUrl: channel.thumbnailUrl,
-        userId: 'temp-user',
+        userId: user.uid,
         addedAt: new Date(),
         isActive: true
       });
@@ -260,7 +262,7 @@ function AppContent() {
         subscriberCount: channel.subscriberCount,
         videoCount: channel.videoCount,
         totalViews: channel.totalViews,
-        userId: 'temp-user',
+        userId: user.uid,
         recordedAt: new Date()
       });
 
@@ -347,10 +349,9 @@ function AppContent() {
     );
   }
 
-  // 一時的に認証を無効化
-  // if (!user) {
-  //   return <LoginForm isLogin={isLogin} setIsLogin={setIsLogin} />;
-  // }
+  if (!user) {
+    return <LoginForm isLogin={isLogin} setIsLogin={setIsLogin} />;
+  }
 
   if (loading) {
     return (

@@ -358,7 +358,7 @@ export async function addChannelToFirestore(channelData, userId) {
     const channelsRef = collection(db, 'bgm_channels');
     await addDoc(channelsRef, {
       ...channelData,
-      userId: userId || 'temp-user',
+      userId: userId,
       createdAt: new Date(),
       addedManually: true
     });
@@ -427,10 +427,10 @@ export async function getChannelsByStatus(status = 'all', userId, additionalFilt
   try {
     let q = collection(db, 'bgm_channels');
     
-    // 一時的にユーザーIDフィルタリングを無効化
-    // if (userId) {
-    //   q = query(q, where('userId', '==', userId));
-    // }
+    // ユーザーIDでフィルタリング
+    if (userId) {
+      q = query(q, where('userId', '==', userId));
+    }
     
     // ステータスフィルター（unsetと'all'の場合は全件取得してからフィルタリング）
     if (status !== 'all' && status !== 'unset') {
