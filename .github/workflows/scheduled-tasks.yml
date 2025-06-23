@@ -27,7 +27,7 @@ jobs:
           cd backend
           npm ci
 
-      - name: Run channel collection
+      - name: Run smart channel collection
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
@@ -35,9 +35,9 @@ jobs:
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
         run: |
           cd backend
-          echo "🔍 Starting channel collection at $(date)"
-          node collect-channels.js
-          echo "✅ Channel collection completed at $(date)"
+          echo "🧠 Starting smart channel collection at $(date)"
+          node smart-collect.js
+          echo "✅ Smart channel collection completed at $(date)"
 
   update-tracking-data:
     runs-on: ubuntu-latest

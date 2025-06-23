@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import IssueReportForm from './IssueReportForm';
 
 const Header = ({ currentView, onViewChange }) => {
+  const { user, logout } = useAuth();
   const [isDark, setIsDark] = useState(false);
   const [showIssueForm, setShowIssueForm] = useState(false);
 
@@ -68,6 +70,9 @@ const Header = ({ currentView, onViewChange }) => {
           </div>
           
           <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600 dark:text-gray-300">
+              👤 {user?.email}
+            </span>
             <button
               onClick={() => setShowIssueForm(true)}
               className="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -81,6 +86,13 @@ const Header = ({ currentView, onViewChange }) => {
               title="ダークモード切り替え"
             >
               {isDark ? '☀️' : '🌙'}
+            </button>
+            <button
+              onClick={logout}
+              className="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="ログアウト"
+            >
+              🚪 ログアウト
             </button>
           </div>
         </div>

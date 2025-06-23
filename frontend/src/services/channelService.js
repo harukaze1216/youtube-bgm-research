@@ -353,11 +353,12 @@ export function calculateGrowthRate(channelInfo, firstVideo) {
 /**
  * チャンネルをFirestoreに追加
  */
-export async function addChannelToFirestore(channelData) {
+export async function addChannelToFirestore(channelData, userId) {
   try {
     const channelsRef = collection(db, 'bgm_channels');
     await addDoc(channelsRef, {
       ...channelData,
+      userId: userId,
       createdAt: new Date(),
       addedManually: true
     });
@@ -422,9 +423,14 @@ export async function updateChannelStatus(channelId, status, reason = null) {
  * @param {Object} additionalFilters - 追加フィルター
  * @returns {Promise<Array>} チャンネルリスト
  */
-export async function getChannelsByStatus(status = 'all', additionalFilters = {}) {
+export async function getChannelsByStatus(status = 'all', userId, additionalFilters = {}) {
   try {
     let q = collection(db, 'bgm_channels');
+    
+    // ユーザーIDでフィルタリング
+    if (userId) {
+      q = query(q, where('userId', '==', userId));
+    }
     
     // ステータスフィルター（unsetと'all'の場合は全件取得してからフィルタリング）
     if (status !== 'all' && status !== 'unset') {
@@ -454,7 +460,7 @@ export async function getChannelsByStatus(status = 'all', additionalFilters = {}
       );
     }
     
-    console.log(`📊 Found ${filteredChannels.length} channels with status: ${status}`);
+    console.log(`📊 Found ${filteredChannels.length} channels with status: ${status} for user: ${userId}`);
     return filteredChannels;
   } catch (error) {
     console.error('Error getting channels by status:', error);

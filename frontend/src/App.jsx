@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc, setDoc, query, where } from 'firebase/firestore';
 import { db } from './firebase';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
 import SearchSection from './components/SearchSection';
 import FilterSection from './components/FilterSection';
@@ -10,8 +11,11 @@ import ChannelModal from './components/ChannelModal';
 import Settings from './components/Settings';
 import TrackingDashboard from './components/TrackingDashboard';
 import ChannelHistory from './components/ChannelHistory';
+import LoginForm from './components/Auth/LoginForm';
 
-function App() {
+function AppContent() {
+  const { user, loading: authLoading } = useAuth();
+  const [isLogin, setIsLogin] = useState(true);
   const [channels, setChannels] = useState([]);
   const [filteredChannels, setFilteredChannels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,23 +58,23 @@ function App() {
       
       switch (filters.filterBy) {
         case 'unset':
-          channelData = await getChannelsByStatus('unset');
+          channelData = await getChannelsByStatus('unset', user.uid);
           break;
         case 'tracking':
-          channelData = await getChannelsByStatus('tracking');
+          channelData = await getChannelsByStatus('tracking', user.uid);
           break;
         case 'non-tracking':
-          channelData = await getChannelsByStatus('non-tracking');
+          channelData = await getChannelsByStatus('non-tracking', user.uid);
           break;
         case 'rejected':
-          channelData = await getChannelsByStatus('rejected');
+          channelData = await getChannelsByStatus('rejected', user.uid);
           break;
         case 'all':
-          channelData = await getChannelsByStatus('all');
+          channelData = await getChannelsByStatus('all', user.uid);
           break;
         default:
           // デフォルトは未仕分けのチャンネルのみ表示
-          channelData = await getChannelsByStatus('unset');
+          channelData = await getChannelsByStatus('unset', user.uid);
           break;
       }
       
@@ -84,7 +88,11 @@ function App() {
 
   const loadTrackedChannels = async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'tracked_channels'));
+      const trackedChannelsQuery = query(
+        collection(db, 'tracked_channels'),
+        where('userId', '==', user.uid)
+      );
+      const querySnapshot = await getDocs(trackedChannelsQuery);
       const trackedIds = new Set(
         querySnapshot.docs
           .filter(doc => doc.data().isActive)
@@ -193,7 +201,7 @@ function App() {
       };
       
       // Firestoreに保存
-      await addChannelToFirestore(channelData);
+      await addChannelToFirestore(channelData, user.uid);
       
       // チャンネル一覧を更新
       await loadChannels();
@@ -243,6 +251,7 @@ function App() {
         channelTitle: channel.channelTitle,
         channelUrl: channel.channelUrl,
         thumbnailUrl: channel.thumbnailUrl,
+        userId: user.uid,
         addedAt: new Date(),
         isActive: true
       });
@@ -253,6 +262,7 @@ function App() {
         subscriberCount: channel.subscriberCount,
         videoCount: channel.videoCount,
         totalViews: channel.totalViews,
+        userId: user.uid,
         recordedAt: new Date()
       });
 
@@ -328,6 +338,21 @@ function App() {
     setChannelDetails(null);
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">認証状態を確認中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginForm isLogin={isLogin} setIsLogin={setIsLogin} />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -392,6 +417,14 @@ function App() {
         onRemove={handleRemoveChannel}
       />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
