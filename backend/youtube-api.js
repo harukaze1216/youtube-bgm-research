@@ -582,7 +582,7 @@ async function processChannelData(youtubeClient, channel, filterConfig) {
     }
     
     // 最初の動画を取得して成長率計算
-    const firstVideo = await getChannelFirstVideo(channelData.uploadsPlaylistId, youtubeClient);
+    const firstVideo = await getChannelFirstVideoFromPlaylist(channelData.uploadsPlaylistId, youtubeClient);
     const growthRate = calculateGrowthRate(channelData.subscriberCount, 
       firstVideo?.publishedAt || channelData.publishedAt);
     
@@ -694,7 +694,7 @@ function sleep(ms) {
 /**
  * カスタムAPIキー用のチャンネル最初の動画取得
  */
-async function getChannelFirstVideo(uploadsPlaylistId, youtubeClient) {
+async function getChannelFirstVideoFromPlaylist(uploadsPlaylistId, youtubeClient) {
   if (!uploadsPlaylistId) return null;
   
   try {
