@@ -80,19 +80,23 @@ const TrackingDashboard = ({ selectedChannelId }) => {
         });
       }
       
-      // 特定のchannelIdでフィルタリング
+      // 特定のchannelIdでフィルタリング（インデックス不要の方法）
       const querySnapshot = await getDocs(
         query(
           collection(db, 'users', user.uid, 'trackingData'),
-          where('channelId', '==', channelId),
-          orderBy('recordedAt', 'asc')
+          where('channelId', '==', channelId)
         )
       );
       
       const data = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })).sort((a, b) => {
+        // クライアントサイドでソート
+        const dateA = a.recordedAt?.toDate() || new Date(a.recordedAt);
+        const dateB = b.recordedAt?.toDate() || new Date(b.recordedAt);
+        return dateA - dateB;
+      });
       
       console.log('🎯 Filtered tracking data for', channelId, ':', data.length, 'documents');
       console.log('📊 Found tracking data:', data);
