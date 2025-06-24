@@ -71,7 +71,14 @@ const TrackingDashboard = ({ selectedChannelId }) => {
         collection(db, 'users', user.uid, 'trackingData')
       );
       
+      // レガシーデータも確認
+      const legacyTrackingData = await getDocs(
+        collection(db, 'users', user.uid, 'tracking')
+      );
+      
       console.log('📊 Total tracking data documents:', allTrackingData.docs.length);
+      console.log('📊 Legacy tracking documents:', legacyTrackingData.docs.length);
+      
       if (allTrackingData.docs.length > 0) {
         console.log('🔍 All tracking data channel IDs:');
         allTrackingData.docs.forEach(doc => {
@@ -80,7 +87,15 @@ const TrackingDashboard = ({ selectedChannelId }) => {
         });
       }
       
-      // 特定のchannelIdでフィルタリング（インデックス不要の方法）
+      if (legacyTrackingData.docs.length > 0) {
+        console.log('🔍 Legacy tracking data channel IDs:');
+        legacyTrackingData.docs.forEach(doc => {
+          const data = doc.data();
+          console.log(`  - ${data.channelTitle || data.title}: ${data.channelId} (legacy doc: ${doc.id})`);
+        });
+      }
+      
+      // 特定のchannelIdでフィルタリング（新しいコレクション）
       const querySnapshot = await getDocs(
         query(
           collection(db, 'users', user.uid, 'trackingData'),
@@ -88,11 +103,43 @@ const TrackingDashboard = ({ selectedChannelId }) => {
         )
       );
       
-      const data = querySnapshot.docs.map(doc => ({
+      let data = querySnapshot.docs.map(doc => ({
         id: doc.id,
+        source: 'trackingData',
         ...doc.data()
-      })).sort((a, b) => {
-        // クライアントサイドでソート
+      }));
+      
+      // レガシーデータも検索（新しいデータがない場合）
+      if (data.length === 0) {
+        console.log('🔍 新しいデータがないため、レガシーデータを検索中...');
+        const legacyQuerySnapshot = await getDocs(
+          query(
+            collection(db, 'users', user.uid, 'tracking'),
+            where('channelId', '==', channelId)
+          )
+        );
+        
+        const legacyData = legacyQuerySnapshot.docs.map(doc => {
+          const docData = doc.data();
+          return {
+            id: doc.id,
+            source: 'legacy_tracking',
+            channelId: docData.channelId,
+            channelTitle: docData.channelTitle || docData.title,
+            subscriberCount: parseInt(docData.subscriberCount || docData.subscriber_count || 0),
+            videoCount: parseInt(docData.videoCount || docData.video_count || 0),
+            totalViews: parseInt(docData.totalViews || docData.total_views || docData.viewCount || 0),
+            recordedAt: docData.recordedAt || docData.timestamp || new Date(),
+            ...docData
+          };
+        });
+        
+        data = [...data, ...legacyData];
+        console.log('📊 Added legacy data:', legacyData.length, 'documents');
+      }
+      
+      // クライアントサイドでソート
+      data = data.sort((a, b) => {
         const dateA = a.recordedAt?.toDate() || new Date(a.recordedAt);
         const dateB = b.recordedAt?.toDate() || new Date(b.recordedAt);
         return dateA - dateB;
