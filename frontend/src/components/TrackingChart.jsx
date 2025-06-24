@@ -68,10 +68,17 @@ const TrackingChart = ({ trackingData, title }) => {
           <div className="flex justify-between mt-2">
             {trackingData.map((point, index) => (
               <div key={index} className="text-xs text-gray-600 text-center flex-1">
-                {new Date(point.date).toLocaleDateString('ja-JP', { 
-                  month: 'short', 
-                  day: 'numeric' 
-                })}
+                <div>
+                  {new Date(point.date).toLocaleDateString('ja-JP', { 
+                    month: 'numeric', 
+                    day: 'numeric' 
+                  })}
+                </div>
+                {point.formattedDate && (
+                  <div className="text-xs text-gray-400">
+                    {point.formattedDate}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -82,11 +89,18 @@ const TrackingChart = ({ trackingData, title }) => {
       <div className="mb-4 max-h-32 overflow-y-auto">
         <h4 className="text-sm font-medium text-gray-700 mb-2">履歴データ</h4>
         <div className="space-y-1">
-          {trackingData.map((point, index) => (
-            <div key={index} className="flex justify-between text-xs">
-              <span className="text-gray-600">
-                {new Date(point.date).toLocaleDateString('ja-JP')}
-              </span>
+          {trackingData.slice().reverse().map((point, index) => (
+            <div key={index} className="flex justify-between items-center text-xs">
+              <div className="flex flex-col">
+                <span className="text-gray-600">
+                  {new Date(point.date).toLocaleDateString('ja-JP')}
+                </span>
+                {point.formattedDate && (
+                  <span className="text-xs text-gray-400">
+                    取得: {point.formattedDate}
+                  </span>
+                )}
+              </div>
               <span className="font-medium text-gray-900">
                 {point.value.toLocaleString()}
               </span>

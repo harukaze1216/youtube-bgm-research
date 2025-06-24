@@ -1,0 +1,55 @@
+name: Daily Channel Collection
+
+on:
+  schedule:
+    # 毎朝5時（JST）に実行 = UTC 20時前日
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      force_run:
+        description: 'Force run collection'
+        required: false
+        default: 'false'
+
+jobs:
+  collect-channels:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Setup Firebase credentials
+      run: |
+        cd backend
+        echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > firebase-service-account.json
+        export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/firebase-service-account.json"
+        
+    - name: Run daily channel collection
+      env:
+        GOOGLE_APPLICATION_CREDENTIALS: backend/firebase-service-account.json
+      run: |
+        cd backend
+        echo "🎵 Starting daily channel collection..."
+        node user-batch-collector.js
+        
+    - name: Cleanup credentials
+      if: always()
+      run: |
+        rm -f backend/firebase-service-account.json
+        
+    - name: Collection summary
+      run: |
+        echo "✅ Daily channel collection completed at $(date)"

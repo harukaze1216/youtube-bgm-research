@@ -88,17 +88,20 @@ const TrackingDashboard = ({ selectedChannelId }) => {
           
           const subscriberData = sortedData.map(d => ({
             date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
-            value: d.subscriberCount || 0
+            value: d.subscriberCount || 0,
+            formattedDate: (d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt)).toLocaleDateString('ja-JP')
           }));
           
           const videoData = sortedData.map(d => ({
             date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
-            value: d.videoCount || 0
+            value: d.videoCount || 0,
+            formattedDate: (d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt)).toLocaleDateString('ja-JP')
           }));
           
           const viewsData = sortedData.map(d => ({
             date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
-            value: d.totalViews || 0
+            value: d.totalViews || 0,
+            formattedDate: (d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt)).toLocaleDateString('ja-JP')
           }));
           
           const realTrackingData = {
@@ -124,10 +127,15 @@ const TrackingDashboard = ({ selectedChannelId }) => {
         const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
         const twoWeeksAgo = new Date(now - 14 * 24 * 60 * 60 * 1000);
         
-        // 模擬的な成長データを生成
+        // 模擬的な成長データを生成（より現実的な投稿頻度を反映）
         const currentSubs = selectedChannel.subscriberCount || 0;
         const currentVideos = selectedChannel.videoCount || 0;
         const currentViews = selectedChannel.totalViews || 0;
+        
+        // BGMチャンネルの一般的な投稿頻度を想定（週5-7本程度）
+        const estimatedDailyVideos = Math.max(1, Math.round(currentVideos * 0.8 / 365)); // 年間の80%を稼働日として計算
+        const twoWeeksAgoVideos = Math.max(0, currentVideos - (estimatedDailyVideos * 14));
+        const oneWeekAgoVideos = Math.max(0, currentVideos - (estimatedDailyVideos * 7));
         
         const mockData = {
           subscriberCount: [
@@ -136,8 +144,8 @@ const TrackingDashboard = ({ selectedChannelId }) => {
             { date: now, value: currentSubs }
           ],
           videoCount: [
-            { date: twoWeeksAgo, value: Math.max(0, currentVideos - 2) },
-            { date: oneWeekAgo, value: Math.max(0, currentVideos - 1) },
+            { date: twoWeeksAgo, value: twoWeeksAgoVideos },
+            { date: oneWeekAgo, value: oneWeekAgoVideos },
             { date: now, value: currentVideos }
           ],
           totalViews: [
