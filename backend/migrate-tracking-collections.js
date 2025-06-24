@@ -65,19 +65,71 @@ async function migrateTrackingCollections() {
           try {
             const legacyData = legacyDoc.data();
             
+            console.log(`🔍 Processing document: ${legacyDoc.id}`);
+            console.log(`📊 Original data keys:`, Object.keys(legacyData));
+            console.log(`📊 Sample values:`, {
+              channelId: legacyData.channelId,
+              channelTitle: legacyData.channelTitle,
+              title: legacyData.title,
+              subscriberCount: legacyData.subscriberCount
+            });
+            
+            // データクリーニング関数
+            const cleanValue = (value, defaultValue = null) => {
+              if (value === undefined || value === null || value === '') {
+                return defaultValue;
+              }
+              return value;
+            };
+            
+            const cleanNumberValue = (value, defaultValue = 0) => {
+              const parsed = parseInt(value);
+              return isNaN(parsed) ? defaultValue : parsed;
+            };
+            
             // 新しい形式にデータを変換
             const newData = {
-              channelId: legacyData.channelId || legacyData.channel_id,
-              channelTitle: legacyData.channelTitle || legacyData.title || legacyData.channel_title,
-              subscriberCount: parseInt(legacyData.subscriberCount || legacyData.subscriber_count || 0),
-              videoCount: parseInt(legacyData.videoCount || legacyData.video_count || 0),
-              totalViews: parseInt(legacyData.totalViews || legacyData.total_views || legacyData.viewCount || 0),
-              recordedAt: legacyData.recordedAt || legacyData.timestamp || new Date(),
+              channelId: cleanValue(legacyData.channelId || legacyData.channel_id, 'unknown'),
+              channelTitle: cleanValue(
+                legacyData.channelTitle || legacyData.title || legacyData.channel_title, 
+                'Unknown Channel'
+              ),
+              subscriberCount: cleanNumberValue(
+                legacyData.subscriberCount || legacyData.subscriber_count, 
+                0
+              ),
+              videoCount: cleanNumberValue(
+                legacyData.videoCount || legacyData.video_count, 
+                0
+              ),
+              totalViews: cleanNumberValue(
+                legacyData.totalViews || legacyData.total_views || legacyData.viewCount, 
+                0
+              ),
+              recordedAt: cleanValue(
+                legacyData.recordedAt || legacyData.timestamp, 
+                new Date()
+              ),
               // 移行メタデータ
               migratedFrom: 'legacy_tracking',
               migratedAt: new Date(),
               originalDocId: legacyDoc.id
             };
+            
+            // undefined値の最終チェック
+            Object.keys(newData).forEach(key => {
+              if (newData[key] === undefined) {
+                console.warn(`⚠️ Undefined value detected for ${key}, setting to null`);
+                newData[key] = null;
+              }
+            });
+            
+            console.log(`✅ Cleaned data:`, {
+              channelId: newData.channelId,
+              channelTitle: newData.channelTitle,
+              subscriberCount: newData.subscriberCount,
+              videoCount: newData.videoCount
+            });
             
             // 重複チェック
             const existingQuery = await db.collection('users').doc(userId)
