@@ -26,11 +26,11 @@ const ENHANCED_CONFIG = {
   // 基本設定
   keywordCount: 30,           // より多くのキーワードを使用
   videosPerKeyword: 50,       // キーワードあたりの動画検索数
-  monthsThreshold: 12,        // 1年間のチャンネルを対象
+  monthsThreshold: 3,         // 3ヶ月間のチャンネルを対象
   
   // 条件緩和
-  minSubscribers: 50,         // 最小登録者数をさらに緩和
-  maxSubscribers: 2000000,    // 最大登録者数を拡大
+  minSubscribers: 500,        // 最小登録者数
+  maxSubscribers: 1000,       // 最大登録者数
   minVideos: 1,               // 最小動画数を大幅緩和
   minGrowthRate: 1,           // 最小成長率を大幅緩和
   

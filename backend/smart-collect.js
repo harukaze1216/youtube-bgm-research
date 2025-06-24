@@ -189,9 +189,9 @@ async function smartCollection() {
     
     // 8. フィルタリング
     const filteredChannels = filterChannels(channelsWithDetails, {
-      monthsThreshold: 6,
-      minSubscribers: 100,
-      maxSubscribers: 1000000,
+      monthsThreshold: 3,
+      minSubscribers: 500,
+      maxSubscribers: 1000,
       minVideos: 2,
       minGrowthRate: 3
     });

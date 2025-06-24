@@ -171,8 +171,8 @@ async function collectForSingleUser(user, logPrefix) {
       videosPerKeyword: user.settings.videosPerKeyword || 40,
       maxChannelsPerRun: user.settings.maxChannelsPerRun || 150,
       monthsThreshold: user.settings.monthsThreshold || 3,
-      minSubscribers: user.settings.minSubscribers || 1000,
-      maxSubscribers: user.settings.maxSubscribers || 500000,
+      minSubscribers: user.settings.minSubscribers || 500,
+      maxSubscribers: user.settings.maxSubscribers || 1000,
       minVideos: user.settings.minVideos || 5,
       minGrowthRate: user.settings.minGrowthRate || 10
     };
