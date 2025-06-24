@@ -64,102 +64,75 @@ const TrackingDashboard = ({ selectedChannelId }) => {
       setLoading(true);
       console.log('Loading tracking data for:', channelId);
       
-      // まず実際のtracking_dataを取得を試みる
-      try {
-        const querySnapshot = await getDocs(
-          query(
-            collection(db, 'users', user.uid, 'trackingData'),
-            where('channelId', '==', channelId)
-          )
-        );
-        
-        const data = querySnapshot.docs.map(doc => doc.data());
-        console.log('Found tracking data:', data);
-        
-        if (data.length > 0) {
-          // 実際のトラッキングデータが存在する場合
-          const sortedData = data
-            .filter(d => d.recordedAt)
-            .sort((a, b) => {
-              const dateA = a.recordedAt.toDate ? a.recordedAt.toDate() : new Date(a.recordedAt);
-              const dateB = b.recordedAt.toDate ? b.recordedAt.toDate() : new Date(b.recordedAt);
-              return dateA - dateB;
-            });
-          
-          const subscriberData = sortedData.map(d => ({
-            date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
-            value: d.subscriberCount || 0,
-            formattedDate: (d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt)).toLocaleDateString('ja-JP')
-          }));
-          
-          const videoData = sortedData.map(d => ({
-            date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
-            value: d.videoCount || 0,
-            formattedDate: (d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt)).toLocaleDateString('ja-JP')
-          }));
-          
-          const viewsData = sortedData.map(d => ({
-            date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
-            value: d.totalViews || 0,
-            formattedDate: (d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt)).toLocaleDateString('ja-JP')
-          }));
-          
-          const realTrackingData = {
-            subscriberCount: subscriberData,
-            videoCount: videoData,
-            totalViews: viewsData
-          };
-          
-          console.log('Setting real tracking data:', realTrackingData);
-          setTrackingData(realTrackingData);
-          return;
-        }
-      } catch (error) {
-        console.log('Failed to fetch real tracking data, using mock data:', error);
-      }
+      // 実際のtracking_dataを取得
+      const querySnapshot = await getDocs(
+        query(
+          collection(db, 'users', user.uid, 'trackingData'),
+          where('channelId', '==', channelId),
+          orderBy('recordedAt', 'asc')
+        )
+      );
       
-      // トラッキングデータがない場合は模擬データを作成
-      const selectedChannel = trackedChannels.find(c => c.channelId === channelId);
-      console.log('Using channel data for mock tracking:', selectedChannel);
+      const data = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
       
-      if (selectedChannel) {
-        const now = new Date();
-        const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-        const twoWeeksAgo = new Date(now - 14 * 24 * 60 * 60 * 1000);
+      console.log('Found tracking data:', data);
+      
+      if (data.length > 0) {
+        // 実際のトラッキングデータが存在する場合
+        const sortedData = data
+          .filter(d => d.recordedAt)
+          .sort((a, b) => {
+            const dateA = a.recordedAt.toDate ? a.recordedAt.toDate() : new Date(a.recordedAt);
+            const dateB = b.recordedAt.toDate ? b.recordedAt.toDate() : new Date(b.recordedAt);
+            return dateA - dateB;
+          });
         
-        // 模擬的な成長データを生成（より現実的な投稿頻度を反映）
-        const currentSubs = selectedChannel.subscriberCount || 0;
-        const currentVideos = selectedChannel.videoCount || 0;
-        const currentViews = selectedChannel.totalViews || 0;
+        const subscriberData = sortedData.map(d => ({
+          date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
+          value: d.subscriberCount || 0,
+          formattedDate: (d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt)).toLocaleDateString('ja-JP')
+        }));
         
-        // BGMチャンネルの一般的な投稿頻度を想定（週5-7本程度）
-        const estimatedDailyVideos = Math.max(1, Math.round(currentVideos * 0.8 / 365)); // 年間の80%を稼働日として計算
-        const twoWeeksAgoVideos = Math.max(0, currentVideos - (estimatedDailyVideos * 14));
-        const oneWeekAgoVideos = Math.max(0, currentVideos - (estimatedDailyVideos * 7));
+        const videoData = sortedData.map(d => ({
+          date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
+          value: d.videoCount || 0,
+          formattedDate: (d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt)).toLocaleDateString('ja-JP')
+        }));
         
-        const mockData = {
-          subscriberCount: [
-            { date: twoWeeksAgo, value: Math.max(0, Math.floor(currentSubs * 0.95)) },
-            { date: oneWeekAgo, value: Math.max(0, Math.floor(currentSubs * 0.98)) },
-            { date: now, value: currentSubs }
-          ],
-          videoCount: [
-            { date: twoWeeksAgo, value: twoWeeksAgoVideos },
-            { date: oneWeekAgo, value: oneWeekAgoVideos },
-            { date: now, value: currentVideos }
-          ],
-          totalViews: [
-            { date: twoWeeksAgo, value: Math.max(0, Math.floor(currentViews * 0.9)) },
-            { date: oneWeekAgo, value: Math.max(0, Math.floor(currentViews * 0.95)) },
-            { date: now, value: currentViews }
-          ]
+        const viewsData = sortedData.map(d => ({
+          date: d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt),
+          value: d.totalViews || 0,
+          formattedDate: (d.recordedAt.toDate ? d.recordedAt.toDate() : new Date(d.recordedAt)).toLocaleDateString('ja-JP')
+        }));
+        
+        const realTrackingData = {
+          subscriberCount: subscriberData,
+          videoCount: videoData,
+          totalViews: viewsData
         };
         
-        console.log('Setting simulated tracking data:', mockData);
-        setTrackingData(mockData);
+        console.log('Setting real tracking data:', realTrackingData);
+        setTrackingData(realTrackingData);
+      } else {
+        // トラッキングデータがない場合は空のデータを設定
+        console.log('No tracking data found for channel:', channelId);
+        setTrackingData({
+          subscriberCount: [],
+          videoCount: [],
+          totalViews: []
+        });
       }
     } catch (error) {
       console.error('トラッキングデータの取得エラー:', error);
+      // エラーの場合も空のデータを設定
+      setTrackingData({
+        subscriberCount: [],
+        videoCount: [],
+        totalViews: []
+      });
     } finally {
       setLoading(false);
     }
@@ -192,8 +165,17 @@ const TrackingDashboard = ({ selectedChannelId }) => {
             チャンネルを選択してください
           </h3>
           <p className="text-gray-600 mb-6">
-            追跡中のチャンネルから1つを選択すると、成長データを表示します
+            追跡中のチャンネルから1つを選択すると、実際のトラッキングデータを表示します
           </p>
+          {trackedChannels.length === 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <p className="text-blue-800 text-sm">
+                💡 <strong>トラッキングデータについて</strong><br />
+                自動収集システムにより週次でデータが蓄積されます。<br />
+                データがない場合は「トラッキングデータがありません」と表示されます。
+              </p>
+            </div>
+          )}
           
           {trackedChannels.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
