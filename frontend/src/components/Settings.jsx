@@ -20,8 +20,8 @@ const Settings = () => {
     
     // フィルタリング設定
     monthsThreshold: 3,
-    minSubscribers: 1000,
-    maxSubscribers: 500000,
+    minSubscribers: 500,
+    maxSubscribers: 1000,
     minVideos: 5,
     minGrowthRate: 10,
     

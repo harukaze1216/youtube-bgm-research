@@ -76,8 +76,8 @@ export function hasGoodGrowthRate(growthRate, minGrowthRate = 10) {
 export function filterChannel(channelData, firstVideo = null, options = {}) {
   const {
     monthsThreshold = 3,
-    minSubscribers = 1000,
-    maxSubscribers = 1000000,
+    minSubscribers = 500,
+    maxSubscribers = 1000,
     minVideos = 5,
     minGrowthRate = 10
   } = options;
