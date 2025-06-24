@@ -420,6 +420,38 @@ export async function markChannelAsViewed(channelDocId, userId) {
 }
 
 /**
+ * 初期トラッキングデータを作成
+ * @param {Object} channelData - チャンネルデータ
+ * @param {string} userId - ユーザーID
+ */
+async function createInitialTrackingData(channelData, userId) {
+  try {
+    // チャンネルの最新情報を取得
+    const latestChannelInfo = await fetchChannelInfo(channelData.channelId, userId);
+    
+    // 初期トラッキングデータを作成
+    const initialTrackingData = {
+      channelId: channelData.channelId,
+      channelTitle: latestChannelInfo.channelTitle,
+      subscriberCount: latestChannelInfo.subscriberCount || 0,
+      videoCount: latestChannelInfo.videoCount || 0,
+      totalViews: latestChannelInfo.totalViews || 0,
+      recordedAt: new Date()
+    };
+    
+    // trackingDataコレクションに保存
+    const trackingRef = collection(db, 'users', userId, 'trackingData');
+    await addDoc(trackingRef, initialTrackingData);
+    
+    console.log(`✅ Initial tracking data created for channel: ${channelData.channelTitle}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error creating initial tracking data for ${channelData.channelTitle}:`, error);
+    return false;
+  }
+}
+
+/**
  * チャンネルのステータスを更新
  * @param {string} channelId - チャンネルID（ドキュメントID）
  * @param {string} status - 新しいステータス ('tracking', 'non-tracking', 'rejected')
@@ -429,6 +461,14 @@ export async function markChannelAsViewed(channelDocId, userId) {
 export async function updateChannelStatus(channelId, status, userId, reason = null) {
   try {
     const channelRef = doc(db, 'users', userId, 'channels', channelId);
+    
+    // チャンネルデータを取得
+    const channelDoc = await getDoc(channelRef);
+    if (!channelDoc.exists()) {
+      throw new Error('チャンネルが見つかりません');
+    }
+    
+    const channelData = channelDoc.data();
     
     const updateData = {
       status: status,
@@ -440,8 +480,18 @@ export async function updateChannelStatus(channelId, status, userId, reason = nu
       updateData.rejectionReason = reason;
     }
     
+    // ステータスを更新
     await updateDoc(channelRef, updateData);
     console.log(`✅ Updated channel status: ${channelId} -> ${status}`);
+    
+    // trackingステータスに変更された場合、初期トラッキングデータを作成
+    if (status === 'tracking') {
+      await createInitialTrackingData({
+        channelId: channelData.channelId,
+        channelTitle: channelData.channelTitle
+      }, userId);
+    }
+    
     return true;
   } catch (error) {
     console.error(`Error updating channel status for ${channelId}:`, error);
