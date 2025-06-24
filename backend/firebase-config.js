@@ -27,11 +27,17 @@ try {
     } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       // GitHub Actions: Use service account file
       try {
-        const serviceAccount = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+        // 相対パスと絶対パスの両方に対応
+        const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS.startsWith('/') 
+          ? process.env.GOOGLE_APPLICATION_CREDENTIALS 
+          : `./${process.env.GOOGLE_APPLICATION_CREDENTIALS}`;
+        
+        const serviceAccount = JSON.parse(readFileSync(credentialsPath, 'utf8'));
         config.credential = admin.credential.cert(serviceAccount);
-        console.log('Firebase initialized with service account file');
+        console.log('Firebase initialized with service account file:', credentialsPath);
       } catch (fileError) {
         console.error('Error reading service account file:', fileError);
+        console.error('Attempted path:', process.env.GOOGLE_APPLICATION_CREDENTIALS);
       }
     } else {
       console.log('Firebase initialized with default credentials (development mode)');
