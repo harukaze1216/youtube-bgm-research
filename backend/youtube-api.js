@@ -64,11 +64,14 @@ export async function searchVideos(query, maxResults = 50, publishedAfter = null
 /**
  * Get detailed channel information
  * @param {string} channelId - YouTube channel ID
+ * @param {string} apiKey - YouTube API key (optional, uses default if not provided)
  * @returns {Promise<Object|null>} Channel data or null if not found
  */
-export async function getChannelDetails(channelId) {
+export async function getChannelDetails(channelId, apiKey = null) {
   try {
-    const response = await youtube.channels.list({
+    const youtubeClient = apiKey ? createYouTubeClient(apiKey) : youtube;
+    
+    const response = await youtubeClient.channels.list({
       part: 'snippet,statistics,contentDetails',
       id: channelId
     });
@@ -99,12 +102,15 @@ export async function getChannelDetails(channelId) {
 /**
  * Get channel's first video (oldest video)
  * @param {string} channelId - Channel ID
+ * @param {string} apiKey - YouTube API key (optional, uses default if not provided)
  * @returns {Promise<Object|null>} First video data or null
  */
-export async function getChannelFirstVideo(channelId) {
+export async function getChannelFirstVideo(channelId, apiKey = null) {
   try {
+    const youtubeClient = apiKey ? createYouTubeClient(apiKey) : youtube;
+    
     // First, get channel details to find uploads playlist
-    const channelResponse = await youtube.channels.list({
+    const channelResponse = await youtubeClient.channels.list({
       part: 'contentDetails',
       id: channelId
     });
@@ -122,7 +128,7 @@ export async function getChannelFirstVideo(channelId) {
     const maxPages = 10; // Limit to avoid excessive API calls
     
     do {
-      const response = await youtube.playlistItems.list({
+      const response = await youtubeClient.playlistItems.list({
         part: 'snippet',
         playlistId: uploadsPlaylistId,
         maxResults: 50,

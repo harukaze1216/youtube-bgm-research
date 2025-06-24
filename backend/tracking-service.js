@@ -2,6 +2,25 @@ import { db, COLLECTIONS } from './firebase-config.js';
 import { getChannelDetails } from './youtube-api.js';
 
 /**
+ * ユーザーのAPIキーを取得
+ */
+async function getUserApiKey(userId) {
+  try {
+    const settingsDoc = await db.collection('users').doc(userId)
+      .collection('settings').doc('config').get();
+    
+    if (settingsDoc.exists) {
+      const settings = settingsDoc.data();
+      return settings.youtubeApiKey || null;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting user API key:', error);
+    return null;
+  }
+}
+
+/**
  * チャンネルを追跡リストに追加（新しいステータス管理システム対応）
  * @param {string} channelId - チャンネルID
  * @returns {Promise<boolean>} 成功時true
@@ -45,7 +64,14 @@ export async function recordTrackingData(channelId, userId, channelData = null) 
     }
 
     if (!channelData) {
-      channelData = await getChannelDetails(channelId);
+      // ユーザーのAPIキーを取得
+      const userApiKey = await getUserApiKey(userId);
+      if (!userApiKey) {
+        console.error(`No API key found for user ${userId}`);
+        return false;
+      }
+      
+      channelData = await getChannelDetails(channelId, userApiKey);
       if (!channelData) {
         console.error(`Failed to get channel details for ${channelId}`);
         return false;
