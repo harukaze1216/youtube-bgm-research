@@ -16,6 +16,18 @@ const TrackingDashboard = ({ selectedChannelId }) => {
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [currentSelectedChannelId, setCurrentSelectedChannelId] = useState(selectedChannelId);
 
+  const formatNumber = (num) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  };
+
+  const getGrowthBadgeColor = (rate) => {
+    if (rate >= 50) return 'bg-green-100 text-green-800';
+    if (rate >= 20) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-gray-100 text-gray-800';
+  };
+
   useEffect(() => {
     if (user) {
       loadTrackedChannels();
@@ -180,33 +192,54 @@ const TrackingDashboard = ({ selectedChannelId }) => {
               {trackedChannels.map(channel => (
                 <div
                   key={channel.id}
-                  onClick={() => {
-                    console.log('Selecting channel:', channel.channelId, channel);
-                    setCurrentSelectedChannelId(channel.channelId);
-                    loadTrackingData(channel.channelId);
-                  }}
-                  className="cursor-pointer p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                  className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={channel.thumbnailUrl || '/default-avatar.png'}
-                      alt={channel.channelTitle}
-                      className="w-12 h-12 rounded-full object-cover"
-                      onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/48x48/e5e7eb/9ca3af?text=🎵';
+                  <div className="flex items-center justify-between">
+                    <div 
+                      onClick={() => {
+                        console.log('Selecting channel:', channel.channelId, channel);
+                        setCurrentSelectedChannelId(channel.channelId);
+                        loadTrackingData(channel.channelId);
                       }}
-                    />
-                    <div className="text-left">
-                      <h4 className="font-medium text-gray-900 truncate">
-                        {channel.channelTitle}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        ステータス更新: {channel.statusUpdatedAt ? 
-                          new Date(channel.statusUpdatedAt.toDate ? channel.statusUpdatedAt.toDate() : channel.statusUpdatedAt).toLocaleDateString('ja-JP') :
-                          'Unknown'
-                        }
-                      </p>
+                      className="cursor-pointer flex items-center gap-3 flex-1"
+                    >
+                      <img
+                        src={channel.thumbnailUrl || '/default-avatar.png'}
+                        alt={channel.channelTitle}
+                        className="w-12 h-12 rounded-full object-cover"
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/48x48/e5e7eb/9ca3af?text=🎵';
+                        }}
+                      />
+                      <div className="text-left flex-1">
+                        <h4 className="font-medium text-gray-900 truncate">
+                          {channel.channelTitle}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-sm text-gray-600">
+                            {formatNumber(channel.subscriberCount || 0)} 登録者
+                          </span>
+                          {channel.growthRate && (
+                            <span
+                              className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                                getGrowthBadgeColor(channel.growthRate)
+                              }`}
+                            >
+                              成長率 {channel.growthRate}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(channel.channelUrl, '_blank');
+                      }}
+                      className="ml-2 text-blue-600 hover:text-blue-700 text-sm font-medium px-3 py-1 rounded hover:bg-blue-50 transition-colors"
+                    >
+                      訪問 →
+                    </button>
                   </div>
                 </div>
               ))}
@@ -241,15 +274,30 @@ const TrackingDashboard = ({ selectedChannelId }) => {
                 }}
               />
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {selectedChannel.channelTitle}
-                </h2>
-                <p className="text-gray-600">
-                  ステータス更新: {selectedChannel.statusUpdatedAt ? 
-                    new Date(selectedChannel.statusUpdatedAt.toDate ? selectedChannel.statusUpdatedAt.toDate() : selectedChannel.statusUpdatedAt).toLocaleDateString('ja-JP') :
-                    'Unknown'
-                  }
-                </p>
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {selectedChannel.channelTitle}
+                  </h2>
+                  <button
+                    onClick={() => window.open(selectedChannel.channelUrl, '_blank')}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-medium px-3 py-1 rounded hover:bg-blue-50 transition-colors"
+                  >
+                    訪問 →
+                  </button>
+                </div>
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <span>{formatNumber(selectedChannel.subscriberCount || 0)} 登録者</span>
+                  <span>{formatNumber(selectedChannel.videoCount || 0)} 動画</span>
+                  {selectedChannel.growthRate && (
+                    <span
+                      className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                        getGrowthBadgeColor(selectedChannel.growthRate)
+                      }`}
+                    >
+                      成長率 {selectedChannel.growthRate}%
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <button
