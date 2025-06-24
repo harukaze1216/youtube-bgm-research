@@ -3,7 +3,7 @@ import { collection, getDocs, doc, deleteDoc, setDoc, query, where } from 'fireb
 import { db } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
-import SearchSection from './components/SearchSection';
+// SearchSection removed - using AddChannelModal instead
 import FilterSection from './components/FilterSection';
 import StatsOverview from './components/StatsOverview';
 import ChannelGrid from './components/ChannelGrid';
@@ -159,65 +159,7 @@ function AppContent() {
     setFilteredChannels(filtered);
   };
 
-  const handleAddChannel = async (channelInput) => {
-    try {
-      const { 
-        extractChannelId, 
-        fetchChannelInfo, 
-        fetchChannelFirstVideo,
-        checkChannelExists,
-        isBGMChannel,
-        calculateGrowthRate,
-        addChannelToFirestore
-      } = await import('./services/channelService');
-      
-      // チャンネルIDを抽出
-      const channelId = extractChannelId(channelInput);
-      
-      // 既存チェック
-      const exists = await checkChannelExists(channelId, user.uid);
-      if (exists) {
-        alert('このチャンネルは既に追加されています');
-        return;
-      }
-      
-      // チャンネル情報を取得
-      const channelInfo = await fetchChannelInfo(channelId, user.uid);
-      
-      // BGMチャンネルかチェック
-      if (!isBGMChannel(channelInfo.channelTitle, channelInfo.description)) {
-        const proceed = confirm('このチャンネルはBGM関連ではない可能性があります。追加しますか？');
-        if (!proceed) return;
-      }
-      
-      // 最初の動画を取得
-      const firstVideo = await fetchChannelFirstVideo(channelInfo.uploadsPlaylistId, user.uid);
-      
-      // 成長率を計算
-      const growthRate = calculateGrowthRate(channelInfo, firstVideo);
-      
-      // 完全なチャンネルデータを構築
-      const channelData = {
-        ...channelInfo,
-        firstVideoDate: firstVideo?.publishedAt || channelInfo.publishedAt,
-        growthRate,
-        keywords: [], // BGM関連キーワードを後で追加可能
-        uploadsPlaylistId: channelInfo.uploadsPlaylistId // 人気動画取得用
-      };
-      
-      // Firestoreに保存
-      await addChannelToFirestore(channelData, user.uid);
-      
-      // チャンネル一覧を更新
-      await loadChannels();
-      
-      alert(`✅ チャンネル「${channelInfo.channelTitle}」を追加しました`);
-      
-    } catch (error) {
-      console.error('チャンネル追加エラー:', error);
-      alert(`❌ チャンネル追加に失敗しました: ${error.message}`);
-    }
-  };
+  // Channel addition is now handled by AddChannelModal component
 
   const handleRemoveChannel = async (idOrChannelId) => {
     try {
@@ -404,7 +346,7 @@ function AppContent() {
               </div>
             </div>
             
-            <SearchSection onAddChannel={handleAddChannel} />
+            {/* SearchSection removed - using AddChannelModal button above instead */}
             
             <FilterSection 
               filters={filters} 

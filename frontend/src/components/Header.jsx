@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import IssueReportForm from './IssueReportForm';
 
 const Header = ({ currentView, onViewChange }) => {
   const { user, logout } = useAuth();
   const [isDark, setIsDark] = useState(false);
-  const [showIssueForm, setShowIssueForm] = useState(false);
+  // Issue form state removed - using centralized feedback modal
 
   // ページ読み込み時にテーマを復元
   useEffect(() => {
@@ -59,13 +58,7 @@ const Header = ({ currentView, onViewChange }) => {
             <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 hidden sm:block truncate max-w-32">
               {user?.email}
             </span>
-            <button
-              onClick={() => setShowIssueForm(true)}
-              className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="不具合・要望を報告"
-            >
-              🐛
-            </button>
+            {/* Issue report button removed - using feedback button in main content instead */}
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -104,9 +97,7 @@ const Header = ({ currentView, onViewChange }) => {
         </div>
       </div>
       
-      {showIssueForm && (
-        <IssueReportForm onClose={() => setShowIssueForm(false)} />
-      )}
+      {/* IssueReportForm removed - using centralized FeedbackModal instead */}
     </header>
   );
 };

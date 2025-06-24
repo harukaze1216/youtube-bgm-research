@@ -53,15 +53,13 @@ const ChannelCard = ({ channel, onChannelClick, onAddToTracking, onStatusChange 
   };
 
   return (
-    <div 
-      className="channel-card cursor-pointer"
-      onClick={handleCardClick}
-    >
+    <div className="channel-card">
       <div className="flex items-start gap-4">
         <img
           src={channel.thumbnailUrl || '/default-avatar.png'}
           alt={channel.channelTitle}
-          className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+          className="w-16 h-16 rounded-full object-cover flex-shrink-0 cursor-pointer"
+          onClick={handleCardClick}
           onError={(e) => {
             e.target.src = 'https://via.placeholder.com/64x64/e5e7eb/9ca3af?text=🎵';
           }}
@@ -69,7 +67,10 @@ const ChannelCard = ({ channel, onChannelClick, onAddToTracking, onStatusChange 
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-semibold text-gray-900 truncate">
+            <h3 
+              className="font-semibold text-gray-900 truncate cursor-pointer hover:text-blue-600"
+              onClick={handleCardClick}
+            >
               {channel.channelTitle}
             </h3>
             {isNewChannel(channel.createdAt) && (
