@@ -31,23 +31,19 @@ jobs:
         cd backend
         npm ci
         
-    - name: Setup Firebase credentials
-      run: |
-        cd backend
-        echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > firebase-service-account.json
-        
     - name: Run weekly tracking update
       env:
-        GOOGLE_APPLICATION_CREDENTIALS: backend/firebase-service-account.json
+        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        NODE_ENV: production
       run: |
         cd backend
         echo "📊 Starting weekly tracking update..."
         node user-batch-tracking.js
         
-    - name: Cleanup credentials
+    - name: Post-execution cleanup
       if: always()
       run: |
-        rm -f backend/firebase-service-account.json
+        echo "✅ Weekly tracking update process completed"
         
     - name: Tracking summary
       run: |
