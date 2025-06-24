@@ -39,7 +39,7 @@ jobs:
         
     - name: Run daily channel collection
       env:
-        GOOGLE_APPLICATION_CREDENTIALS: backend/firebase-service-account.json
+        GOOGLE_APPLICATION_CREDENTIALS: firebase-service-account.json
       run: |
         cd backend
         echo "🎵 Starting daily channel collection..."
