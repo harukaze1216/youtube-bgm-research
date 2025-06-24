@@ -62,9 +62,25 @@ const TrackingDashboard = ({ selectedChannelId }) => {
     
     try {
       setLoading(true);
-      console.log('Loading tracking data for:', channelId);
+      console.log('🔍 Loading tracking data for channelId:', channelId);
+      console.log('👤 User ID:', user.uid);
+      console.log('📍 Collection path:', `users/${user.uid}/trackingData`);
       
-      // 実際のtracking_dataを取得
+      // まず、このユーザーの全trackingDataを取得してデバッグ
+      const allTrackingData = await getDocs(
+        collection(db, 'users', user.uid, 'trackingData')
+      );
+      
+      console.log('📊 Total tracking data documents:', allTrackingData.docs.length);
+      if (allTrackingData.docs.length > 0) {
+        console.log('🔍 All tracking data channel IDs:');
+        allTrackingData.docs.forEach(doc => {
+          const data = doc.data();
+          console.log(`  - ${data.channelTitle}: ${data.channelId} (doc: ${doc.id})`);
+        });
+      }
+      
+      // 特定のchannelIdでフィルタリング
       const querySnapshot = await getDocs(
         query(
           collection(db, 'users', user.uid, 'trackingData'),
@@ -78,7 +94,8 @@ const TrackingDashboard = ({ selectedChannelId }) => {
         ...doc.data()
       }));
       
-      console.log('Found tracking data:', data);
+      console.log('🎯 Filtered tracking data for', channelId, ':', data.length, 'documents');
+      console.log('📊 Found tracking data:', data);
       
       if (data.length > 0) {
         // 実際のトラッキングデータが存在する場合
@@ -187,7 +204,11 @@ const TrackingDashboard = ({ selectedChannelId }) => {
                   <div className="flex items-center justify-between">
                     <div 
                       onClick={() => {
-                        console.log('Selecting channel:', channel.channelId, channel);
+                        console.log('🎯 Selecting channel for tracking:');
+                        console.log('  - Channel Title:', channel.channelTitle);
+                        console.log('  - Channel ID:', channel.channelId);
+                        console.log('  - Document ID:', channel.id);
+                        console.log('  - Full channel data:', channel);
                         setCurrentSelectedChannelId(channel.channelId);
                         loadTrackingData(channel.channelId);
                       }}
