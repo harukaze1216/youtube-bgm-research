@@ -1,5 +1,6 @@
 import admin from 'firebase-admin';
 import dotenv from 'dotenv';
+import { readFileSync } from 'fs';
 
 dotenv.config();
 
@@ -22,6 +23,15 @@ try {
         console.log('Firebase initialized with service account credentials');
       } catch (parseError) {
         console.error('Error parsing service account key:', parseError);
+      }
+    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      // GitHub Actions: Use service account file
+      try {
+        const serviceAccount = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+        config.credential = admin.credential.cert(serviceAccount);
+        console.log('Firebase initialized with service account file');
+      } catch (fileError) {
+        console.error('Error reading service account file:', fileError);
       }
     } else {
       console.log('Firebase initialized with default credentials (development mode)');
