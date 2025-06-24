@@ -28,8 +28,8 @@ const TrackingChart = ({ trackingData, title }) => {
               if (index === 0) return null;
               
               const prevPoint = trackingData[index - 1];
-              const x1 = ((index - 1) / (trackingData.length - 1)) * 100;
-              const x2 = (index / (trackingData.length - 1)) * 100;
+              const x1 = trackingData.length === 1 ? 50 : ((index - 1) / (trackingData.length - 1)) * 100;
+              const x2 = trackingData.length === 1 ? 50 : (index / (trackingData.length - 1)) * 100;
               const y1 = maxValue === minValue ? 50 : 100 - ((prevPoint.value - minValue) / (maxValue - minValue)) * 80;
               const y2 = maxValue === minValue ? 50 : 100 - ((point.value - minValue) / (maxValue - minValue)) * 80;
               
@@ -48,7 +48,7 @@ const TrackingChart = ({ trackingData, title }) => {
             })}
             
             {trackingData.map((point, index) => {
-              const x = (index / (trackingData.length - 1)) * 100;
+              const x = trackingData.length === 1 ? 50 : (index / (trackingData.length - 1)) * 100;
               const y = maxValue === minValue ? 50 : 100 - ((point.value - minValue) / (maxValue - minValue)) * 80;
               const isLatest = index === trackingData.length - 1;
               
