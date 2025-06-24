@@ -1,0 +1,52 @@
+name: Migrate Tracking Collections
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_migration:
+        description: 'Type "migrate" to confirm data migration'
+        required: true
+        default: ''
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Validate confirmation
+      if: ${{ github.event.inputs.confirm_migration != 'migrate' }}
+      run: |
+        echo "❌ Migration not confirmed. Please type 'migrate' in the input field."
+        exit 1
+        
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Run tracking collection migration
+      env:
+        FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        NODE_ENV: production
+      run: |
+        cd backend
+        echo "🔄 トラッキングコレクション移行を開始..."
+        echo "⚠️ レガシー 'tracking' から新しい 'trackingData' コレクションへ移行"
+        node migrate-tracking-collections.js
+        
+    - name: Migration summary
+      run: |
+        echo "✅ トラッキングコレクション移行完了"
+        echo "📋 次の手順:"
+        echo "1. フロントエンドでデータ表示確認"
+        echo "2. 問題なければレガシーコレクション削除検討"
