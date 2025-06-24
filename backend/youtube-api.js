@@ -81,15 +81,24 @@ export async function getChannelDetails(channelId, apiKey = null) {
     }
 
     const channel = response.data.items[0];
+    
+    // デバッグ用ログ追加
+    console.log(`📊 Channel statistics for ${channel.snippet.title}:`, {
+      subscriberCount: channel.statistics?.subscriberCount,
+      videoCount: channel.statistics?.videoCount,
+      viewCount: channel.statistics?.viewCount,
+      hiddenSubscriberCount: channel.statistics?.hiddenSubscriberCount
+    });
+    
     return {
       channelId: channel.id,
       channelTitle: channel.snippet.title,
       description: channel.snippet.description,
       thumbnailUrl: channel.snippet.thumbnails?.default?.url || channel.snippet.thumbnails?.medium?.url,
       channelUrl: `https://www.youtube.com/channel/${channel.id}`,
-      subscriberCount: parseInt(channel.statistics.subscriberCount || 0),
-      videoCount: parseInt(channel.statistics.videoCount || 0),
-      totalViews: parseInt(channel.statistics.viewCount || 0),
+      subscriberCount: parseInt(channel.statistics?.subscriberCount || 0),
+      videoCount: parseInt(channel.statistics?.videoCount || 0),
+      totalViews: parseInt(channel.statistics?.viewCount || 0),
       publishedAt: channel.snippet.publishedAt,
       uploadsPlaylistId: channel.contentDetails?.relatedPlaylists?.uploads
     };

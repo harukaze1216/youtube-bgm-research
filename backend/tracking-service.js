@@ -78,12 +78,25 @@ export async function recordTrackingData(channelId, userId, channelData = null) 
       }
     }
 
+    // データ検証とログ
+    console.log(`📊 Recording tracking data for ${channelData.channelTitle}:`, {
+      subscriberCount: channelData.subscriberCount,
+      videoCount: channelData.videoCount,
+      totalViews: channelData.totalViews
+    });
+    
     const trackingDoc = {
       channelId,
       subscriberCount: parseInt(channelData.subscriberCount) || 0,
       videoCount: parseInt(channelData.videoCount) || 0,
       totalViews: parseInt(channelData.totalViews) || 0,
-      recordedAt: new Date()
+      recordedAt: new Date(),
+      // デバッグ用：元データも保存
+      originalData: {
+        subscriberCount: channelData.subscriberCount,
+        videoCount: channelData.videoCount,
+        totalViews: channelData.totalViews
+      }
     };
 
     // ユーザー固有のサブコレクションに保存
