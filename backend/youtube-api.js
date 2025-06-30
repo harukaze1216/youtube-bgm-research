@@ -535,6 +535,17 @@ async function processChannelDetails(youtubeClient, channelIds, filterConfig) {
   const validChannels = [];
   const batchSize = 50; // YouTube API制限
   
+  let totalProcessed = 0;
+  let bgmFilterFailed = 0;
+  let basicFilterFailed = 0;
+  let growthFilterFailed = 0;
+  
+  console.log(`\n📋 フィルタ設定:`);
+  console.log(`  👥 登録者数: ${filterConfig.minSubscribers.toLocaleString()}-${filterConfig.maxSubscribers.toLocaleString()}`);
+  console.log(`  🎥 最小動画数: ${filterConfig.minVideos}`);
+  console.log(`  📅 チャンネル年齢: ${filterConfig.monthsThreshold}ヶ月以内`);
+  console.log(`  📈 最小成長率: ${filterConfig.minGrowthRate}%`);
+  
   for (let i = 0; i < channelIds.length; i += batchSize) {
     const batch = channelIds.slice(i, i + batchSize);
     
@@ -545,10 +556,32 @@ async function processChannelDetails(youtubeClient, channelIds, filterConfig) {
       });
       
       if (response.data.items) {
+        console.log(`\n📦 バッチ ${Math.floor(i/batchSize) + 1}: ${response.data.items.length}チャンネルを処理中...`);
+        
         for (const channel of response.data.items) {
+          totalProcessed++;
           const channelData = await processChannelData(youtubeClient, channel, filterConfig);
           if (channelData) {
             validChannels.push(channelData);
+          } else {
+            // フィルタ失敗の統計を取る（簡易的に）
+            const snippet = channel.snippet;
+            const stats = channel.statistics;
+            const testData = {
+              channelTitle: snippet.title,
+              description: snippet.description || '',
+              subscriberCount: parseInt(stats.subscriberCount) || 0,
+              videoCount: parseInt(stats.videoCount) || 0,
+              publishedAt: snippet.publishedAt
+            };
+            
+            if (!isBGMChannel(testData.channelTitle, testData.description)) {
+              bgmFilterFailed++;
+            } else if (!checkBasicFilters(testData, filterConfig).passed) {
+              basicFilterFailed++;
+            } else {
+              growthFilterFailed++;
+            }
           }
         }
       }
@@ -557,9 +590,16 @@ async function processChannelDetails(youtubeClient, channelIds, filterConfig) {
       await sleep(100);
       
     } catch (error) {
-      console.warn(`チャンネル詳細取得エラー (バッチ ${i}-${i + batchSize}):`, error.message);
+      console.warn(`❌ チャンネル詳細取得エラー (バッチ ${i}-${i + batchSize}):`, error.message);
     }
   }
+  
+  console.log(`\n📊 フィルタリング結果サマリー:`);
+  console.log(`  🔍 処理総数: ${totalProcessed}`);
+  console.log(`  ✅ 通過: ${validChannels.length} (${((validChannels.length/totalProcessed)*100).toFixed(1)}%)`);
+  console.log(`  ❌ BGMフィルタ除外: ${bgmFilterFailed}`);
+  console.log(`  ❌ 基本フィルタ除外: ${basicFilterFailed}`);
+  console.log(`  ❌ 成長率フィルタ除外: ${growthFilterFailed}`);
   
   return validChannels;
 }
@@ -586,41 +626,60 @@ async function processChannelData(youtubeClient, channel, filterConfig) {
       uploadsPlaylistId: channel.contentDetails?.relatedPlaylists?.uploads
     };
     
+    console.log(`\n🔍 チャンネル詳細検証: ${channelData.channelTitle}`);
+    console.log(`  📊 登録者数: ${channelData.subscriberCount.toLocaleString()}`);
+    console.log(`  🎥 動画数: ${channelData.videoCount}`);
+    console.log(`  👀 総再生回数: ${channelData.totalViews.toLocaleString()}`);
+    console.log(`  📅 作成日: ${channelData.publishedAt}`);
+    
     // BGMフィルタリング
-    if (!isBGMChannel(channelData.channelTitle, channelData.description)) {
+    const bgmCheck = isBGMChannel(channelData.channelTitle, channelData.description);
+    console.log(`  🎵 BGMチャンネル判定: ${bgmCheck ? '✅ 通過' : '❌ 除外'}`);
+    if (!bgmCheck) {
+      console.log(`    理由: BGM関連キーワードが不足、または除外キーワードを含む`);
       return null;
     }
     
     // 基本条件フィルタリング
-    if (!passesBasicFilters(channelData, filterConfig)) {
+    const basicFiltersResult = checkBasicFilters(channelData, filterConfig);
+    console.log(`  📋 基本フィルタ: ${basicFiltersResult.passed ? '✅ 通過' : '❌ 除外'}`);
+    if (!basicFiltersResult.passed) {
+      console.log(`    理由: ${basicFiltersResult.reason}`);
       return null;
     }
     
     // 最初の動画を取得して成長率計算
+    console.log(`  🔍 最初の動画を検索中...`);
     const firstVideo = await getChannelFirstVideoFromPlaylist(channelData.uploadsPlaylistId, youtubeClient);
     const growthRate = calculateGrowthRate(channelData.subscriberCount, 
       firstVideo?.publishedAt || channelData.publishedAt);
     
+    console.log(`  📈 成長率: ${growthRate}% (最小: ${filterConfig.minGrowthRate}%)`);
+    
     // 成長率フィルタ
     if (growthRate < filterConfig.minGrowthRate) {
+      console.log(`  ❌ 成長率フィルタ除外: ${growthRate}% < ${filterConfig.minGrowthRate}%`);
       return null;
     }
+    
+    const bgmScore = calculateBGMRelevanceScore(channelData.channelTitle, channelData.description);
+    console.log(`  ✅ 全フィルタ通過! BGMスコア: ${bgmScore}`);
     
     return {
       ...channelData,
       firstVideoDate: firstVideo?.publishedAt || channelData.publishedAt,
       growthRate,
-      scoreBgmRelev: calculateBGMRelevanceScore(channelData.channelTitle, channelData.description)
+      scoreBgmRelev: bgmScore
     };
     
   } catch (error) {
-    console.warn(`チャンネルデータ処理エラー (${channel.id}):`, error.message);
+    console.warn(`❌ チャンネルデータ処理エラー (${channel.id}):`, error.message);
     return null;
   }
 }
 
 /**
- * BGMチャンネル判定
+ * BGMチャンネル判定（詳細ログ付き）
  */
 function isBGMChannel(title, description) {
   const bgmKeywords = [
@@ -636,46 +695,70 @@ function isBGMChannel(title, description) {
   ];
   
   const text = `${title} ${description}`.toLowerCase();
+  const foundBgmKeywords = [];
+  const foundExclusionKeywords = [];
   
   // 除外キーワードチェック
   for (const keyword of exclusionKeywords) {
     if (text.includes(keyword.toLowerCase())) {
-      return false;
+      foundExclusionKeywords.push(keyword);
     }
   }
   
   // BGMキーワードチェック
   for (const keyword of bgmKeywords) {
     if (text.includes(keyword.toLowerCase())) {
-      return true;
+      foundBgmKeywords.push(keyword);
     }
   }
   
-  return false;
+  console.log(`    📝 テキスト: "${title.substring(0, 50)}${title.length > 50 ? '...' : ''}"`);
+  console.log(`    ✅ BGMキーワード: [${foundBgmKeywords.join(', ')}]`);
+  console.log(`    ❌ 除外キーワード: [${foundExclusionKeywords.join(', ')}]`);
+  
+  if (foundExclusionKeywords.length > 0) {
+    return false;
+  }
+  
+  return foundBgmKeywords.length > 0;
 }
 
 /**
- * 基本フィルタリング
+ * 詳細な基本フィルタチェック（ログ付き）
  */
-function passesBasicFilters(channelData, config) {
+function checkBasicFilters(channelData, config) {
+  const reasons = [];
+  
   // 登録者数チェック
-  if (channelData.subscriberCount < config.minSubscribers || 
-      channelData.subscriberCount > config.maxSubscribers) {
-    return false;
+  if (channelData.subscriberCount < config.minSubscribers) {
+    reasons.push(`登録者数不足 (${channelData.subscriberCount.toLocaleString()} < ${config.minSubscribers.toLocaleString()})`);
+  }
+  if (channelData.subscriberCount > config.maxSubscribers) {
+    reasons.push(`登録者数超過 (${channelData.subscriberCount.toLocaleString()} > ${config.maxSubscribers.toLocaleString()})`);
   }
   
   // 動画数チェック
   if (channelData.videoCount < config.minVideos) {
-    return false;
+    reasons.push(`動画数不足 (${channelData.videoCount} < ${config.minVideos})`);
   }
   
   // チャンネル作成日チェック
   const channelAge = (Date.now() - new Date(channelData.publishedAt)) / (1000 * 60 * 60 * 24 * 30);
   if (channelAge > config.monthsThreshold) {
-    return false;
+    reasons.push(`チャンネル古すぎ (${channelAge.toFixed(1)}ヶ月 > ${config.monthsThreshold}ヶ月)`);
   }
   
-  return true;
+  return {
+    passed: reasons.length === 0,
+    reason: reasons.join(', ')
+  };
+}
+
+/**
+ * 基本フィルタリング（レガシー用）
+ */
+function passesBasicFilters(channelData, config) {
+  return checkBasicFilters(channelData, config).passed;
 }
 
 /**
